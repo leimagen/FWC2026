@@ -12,6 +12,10 @@ const description =
 		? 'Resultados, eventos y cambios de clasificación del Mundial 2026 en tiempo real.'
 		: 'Live World Cup 2026 scores, events and real-time standings changes.';
 const canonicalPath = lang === 'es' ? '/' : '/en/';
+const canonicalUrl = new URL(canonicalPath, Astro.site);
+const spanishUrl = new URL('/', Astro.site);
+const englishUrl = new URL('/en/', Astro.site);
+const socialImageUrl = new URL('/social-card.svg', Astro.site);
 ---
 
 <!doctype html>
@@ -24,13 +28,16 @@ const canonicalPath = lang === 'es' ? '/' : '/en/';
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="manifest" href="/manifest.webmanifest" />
-		<link rel="canonical" href={canonicalPath} />
-		<link rel="alternate" hreflang="es" href="/" />
-		<link rel="alternate" hreflang="en" href="/en/" />
+		<link rel="canonical" href={canonicalUrl} />
+		<link rel="alternate" hreflang="es" href={spanishUrl} />
+		<link rel="alternate" hreflang="en" href={englishUrl} />
+		<link rel="alternate" hreflang="x-default" href={spanishUrl} />
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
-		<meta property="og:image" content="/social-card.svg" />
+		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:image" content={socialImageUrl} />
+		<meta name="twitter:card" content="summary_large_image" />
 		<title>{title}</title>
 	</head>
 	<body>

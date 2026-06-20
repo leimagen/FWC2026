@@ -2,6 +2,8 @@
 
 An independent, bilingual World Cup 2026 live-table experience. The central idea is simple: every live goal recalculates and animates the provisional group standings immediately, including the effect of simultaneous matches.
 
+Live prototype: [fwc2026-live.pages.dev](https://fwc2026-live.pages.dev/)
+
 ## Current status
 
 The first public prototype includes:
