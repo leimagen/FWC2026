@@ -34,6 +34,9 @@ self.addEventListener('push', (event) => {
 		self.registration.showNotification(data.title ?? 'World Cup 2026', {
 			body: data.body ?? 'The live table has changed.',
 			icon: '/icon-192.png',
+			badge: '/favicon.png',
+			tag: data.tag ?? undefined,
+			renotify: true,
 			data: { url: data.url ?? '/' },
 		}),
 	);

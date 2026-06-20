@@ -35,6 +35,10 @@ const copy = {
 		match: 'Partido',
 		disclaimer: 'Modo simulación · Datos locales · Sitio independiente, no afiliado a FIFA.',
 		notifications: 'Avisarme',
+		notificationsOn: 'Avisos activos',
+		notificationsBlocked: 'Bloqueadas',
+		muteMatch: 'Mutear este partido',
+		unmuteMatch: 'Activar avisos',
 		connected: 'Datos en vivo',
 		local: 'Modo local',
 		supportPrompt: '¿Te resulta útil?',
@@ -67,6 +71,10 @@ const copy = {
 		match: 'Match',
 		disclaimer: 'Simulation mode · Local data · Independent site, not affiliated with FIFA.',
 		notifications: 'Notify me',
+		notificationsOn: 'Alerts on',
+		notificationsBlocked: 'Blocked',
+		muteMatch: 'Mute this match',
+		unmuteMatch: 'Enable alerts',
 		connected: 'Live data',
 		local: 'Local mode',
 		supportPrompt: 'Finding it useful?',
@@ -88,6 +96,8 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [view, setView] = useState<View>('groups');
 	const [matches, setMatches] = useState<Match[]>(tournamentMatches);
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+	const [notificationsBlocked, setNotificationsBlocked] = useState(false);
+	const [mutedFixtureIds, setMutedFixtureIds] = useState<number[]>([]);
 	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
 	const [feedConnected, setFeedConnected] = useState(false);
 	const t = copy[language];
@@ -127,6 +137,16 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		return () => { active = false; window.clearInterval(timer); };
 	}, []);
 
+	useEffect(() => {
+		if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+		void navigator.serviceWorker.ready
+			.then((registration) => registration.pushManager.getSubscription())
+			.then((subscription) => setNotificationsEnabled(Boolean(subscription)));
+		setNotificationsBlocked(Notification.permission === 'denied');
+		const saved = window.localStorage.getItem('mutedFixtureIds');
+		if (saved) setMutedFixtureIds(JSON.parse(saved));
+	}, []);
+
 	function updateScore(matchId: string, side: 'home' | 'away', change: number) {
 		setMatches((current) => current.map((match) => {
 			if (match.id !== matchId) return match;
@@ -142,9 +162,46 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	}
 
 	async function requestNotifications() {
-		if (!('Notification' in window)) return;
+		if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
 		const permission = await Notification.requestPermission();
-		setNotificationsEnabled(permission === 'granted');
+		if (permission !== 'granted') {
+			setNotificationsBlocked(permission === 'denied');
+			return;
+		}
+		const registration = await navigator.serviceWorker.ready;
+		const keyResponse = await fetch('https://feed.fwc2026live.com/v1/push/public-key');
+		const { publicKey } = await keyResponse.json() as { publicKey: string };
+		if (!publicKey) throw new Error('Push key unavailable');
+		const subscription = await registration.pushManager.getSubscription() ??
+			await registration.pushManager.subscribe({
+				userVisibleOnly: true,
+				applicationServerKey: urlBase64ToUint8Array(publicKey),
+			});
+		await fetch('https://feed.fwc2026live.com/v1/push/subscribe', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ subscription: subscription.toJSON(), language }),
+		});
+		setNotificationsEnabled(true);
+		setNotificationsBlocked(false);
+	}
+
+	async function toggleMute(matchId: string) {
+		const fixtureId = Number(matchId.replace('api-', ''));
+		if (!Number.isFinite(fixtureId)) return;
+		const next = mutedFixtureIds.includes(fixtureId)
+			? mutedFixtureIds.filter((id) => id !== fixtureId)
+			: [...mutedFixtureIds, fixtureId];
+		setMutedFixtureIds(next);
+		window.localStorage.setItem('mutedFixtureIds', JSON.stringify(next));
+		const registration = await navigator.serviceWorker.ready;
+		const subscription = await registration.pushManager.getSubscription();
+		if (!subscription) return;
+		await fetch('https://feed.fwc2026live.com/v1/push/preferences', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ endpoint: subscription.endpoint, mutedFixtureIds: next }),
+		});
 	}
 
 	return (
@@ -154,8 +211,9 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 					<img src="/brand/fwc2026live-logo.png" alt="FWC 2026 Live" width="1457" height="214" />
 				</a>
 				<div className="top-actions">
-					<button className="notify-button" type="button" onClick={requestNotifications}>
-						<span aria-hidden="true">{notificationsEnabled ? '●' : '◉'}</span> {t.notifications}
+					<button className="notify-button" type="button" onClick={requestNotifications} disabled={notificationsBlocked}>
+						<span aria-hidden="true">{notificationsEnabled ? '●' : '◉'}</span>{' '}
+						{notificationsBlocked ? t.notificationsBlocked : notificationsEnabled ? t.notificationsOn : t.notifications}
 					</button>
 					<div className="language-switch" aria-label="Language">
 						<button className={language === 'es' ? 'active' : ''} onClick={() => switchLanguage('es')}>ES</button>
@@ -239,7 +297,17 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 								<p className="panel-note">{selectedGroup === 'E' ? t.controlNote : t.noLive}</p>
 								{selectedMatches.filter((match) => match.status === 'live').map((match) => (
 									<div className="match-control" key={match.id}>
-										<div className="match-meta"><span className="pulse" /> {match.minute}' · {t.group} {match.group}</div>
+										<div className="match-meta">
+											<span className="pulse" /> {match.minute}' · {t.group} {match.group}
+											{notificationsEnabled && match.id.startsWith('api-') && (
+												<button
+													className={mutedFixtureIds.includes(Number(match.id.replace('api-', ''))) ? 'muted' : ''}
+													onClick={() => void toggleMute(match.id)}
+													title={mutedFixtureIds.includes(Number(match.id.replace('api-', ''))) ? t.unmuteMatch : t.muteMatch}
+													aria-label={mutedFixtureIds.includes(Number(match.id.replace('api-', ''))) ? t.unmuteMatch : t.muteMatch}
+												>{mutedFixtureIds.includes(Number(match.id.replace('api-', ''))) ? '🔕' : '🔔'}</button>
+											)}
+										</div>
 										{(['home', 'away'] as const).map((side) => {
 											const id = side === 'home' ? match.homeId : match.awayId;
 											const score = side === 'home' ? match.homeGoals : match.awayGoals;
@@ -308,4 +376,11 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 			<footer>{t.disclaimer}</footer>
 		</main>
 	);
+}
+
+function urlBase64ToUint8Array(value: string) {
+	const padding = '='.repeat((4 - value.length % 4) % 4);
+	const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+	const raw = window.atob(base64);
+	return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
 }

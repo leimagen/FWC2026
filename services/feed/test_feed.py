@@ -23,6 +23,22 @@ class FeedTest(unittest.TestCase):
         self.assertEqual(event["addedTime"], 2)
         self.assertEqual(event["player"], "Player")
 
+    def test_detects_new_goal_without_replaying_old_events(self):
+        fixture = {
+            "id": 1, "status": "1H",
+            "home": {"name": "Germany", "goals": 1},
+            "away": {"name": "Ivory Coast", "goals": 1},
+            "events": [],
+        }
+        previous = {"fixtures": [fixture]}
+        current_fixture = {**fixture, "events": [{
+            "minute": 50, "addedTime": None, "teamId": 25,
+            "player": "Player", "type": "Goal", "detail": "Normal Goal",
+        }]}
+        items = feed.notification_events(previous, {"fixtures": [current_fixture]})
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["kind"], "goal")
+
 
 if __name__ == "__main__":
     unittest.main()

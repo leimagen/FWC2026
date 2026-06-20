@@ -16,6 +16,7 @@ The first public prototype includes:
 - Round-of-32 projection
 - FIFA 2026 head-to-head, overall, fair-play and ranking tiebreak logic
 - Installable PWA shell and Web Push service worker
+- VAPID Web Push alerts with per-match mute controls
 - SEO and social metadata foundations
 
 Live sports data is deliberately not connected yet. The UI currently labels all scores as simulated.

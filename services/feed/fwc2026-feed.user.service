@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/home/luiti/fwc2026-feed
 EnvironmentFile=/home/luiti/fwc2026-feed/.env
-ExecStart=/usr/bin/python3 /home/luiti/fwc2026-feed/feed.py
+ExecStart=/home/luiti/fwc2026-feed/.venv/bin/python /home/luiti/fwc2026-feed/feed.py
 Restart=always
 RestartSec=5
 
