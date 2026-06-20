@@ -10,6 +10,7 @@
     "build": "astro build",
     "test": "vitest run",
     "check": "astro check",
+    "api:discover": "node --env-file=.env scripts/discover-api-football.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },

@@ -18,6 +18,17 @@ The first public prototype includes:
 
 Live sports data is deliberately not connected yet. The UI currently labels all scores as simulated.
 
+### Private API discovery
+
+Create a local `.env` file from `.env.example` and add your API-Football key. The file and all downloaded discovery data are ignored by Git.
+
+```bash
+cp .env.example .env
+npm run api:discover
+```
+
+The command searches the authenticated account for current World Cup/FIFA competitions and writes a private report to `.data/api-football/discovery.json`.
+
 ## Development
 
 ```bash
