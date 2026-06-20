@@ -78,6 +78,9 @@ button { color: inherit; }
 .hero > p:last-child { color: #a3abb6; line-height: 1.7; max-width: 650px; margin: 20px 0 0; }
 .compact-hero { padding-bottom: 30px; }
 .data-cutoff { display: block; margin-top: 16px; color: #626b78; font: 500 10px var(--mono); }
+.data-cutoff span { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: #626b78; }
+.data-cutoff.connected { color: var(--lime); }
+.data-cutoff.connected span { background: var(--lime); box-shadow: 0 0 0 4px rgba(183,243,74,.08); }
 
 .view-tabs { display: inline-flex; padding: 4px; margin-bottom: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.035); border-radius: 12px; }
 .view-tabs button { border: 0; background: transparent; color: var(--muted); padding: 9px 16px; border-radius: 9px; cursor: pointer; font-size: 12px; font-weight: 700; }

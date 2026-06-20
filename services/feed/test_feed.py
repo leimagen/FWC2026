@@ -1,0 +1,28 @@
+import importlib.util
+import pathlib
+import unittest
+
+MODULE_PATH = pathlib.Path(__file__).with_name("feed.py")
+SPEC = importlib.util.spec_from_file_location("fwc2026_feed", MODULE_PATH)
+feed = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(feed)
+
+
+class FeedTest(unittest.TestCase):
+    def test_normalizes_goal_event(self):
+        event = feed.normalize_event({
+            "time": {"elapsed": 45, "extra": 2},
+            "team": {"id": 25},
+            "player": {"name": "Player"},
+            "assist": {"name": "Assistant"},
+            "type": "Goal",
+            "detail": "Normal Goal",
+            "comments": None,
+        })
+        self.assertEqual(event["minute"], 45)
+        self.assertEqual(event["addedTime"], 2)
+        self.assertEqual(event["player"], "Player")
+
+
+if __name__ == "__main__":
+    unittest.main()

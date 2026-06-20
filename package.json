@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "test": "vitest run",
+    "test": "vitest run && python -m unittest services/feed/test_feed.py",
     "check": "astro check",
     "api:discover": "node --env-file=.env scripts/discover-api-football.mjs",
     "api:sync": "node --env-file=.env scripts/sync-world-cup.mjs",

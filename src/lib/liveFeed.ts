@@ -1,0 +1,104 @@
+import type { GroupId, Match, MatchStatus, Team } from './standings';
+
+export type FeedEvent = {
+	minute: number | null;
+	addedTime: number | null;
+	teamId: number | null;
+	player: string | null;
+	assist: string | null;
+	type: string;
+	detail: string;
+	comments: string | null;
+};
+
+type FeedTeam = {
+	id: number;
+	name: string;
+	logo: string;
+	goals: number;
+};
+
+export type FeedFixture = {
+	id: number;
+	kickoff: string;
+	round: string;
+	status: string;
+	statusLabel: string;
+	elapsed: number | null;
+	addedTime: number | null;
+	venue: string | null;
+	city: string | null;
+	home: FeedTeam;
+	away: FeedTeam;
+	events: FeedEvent[];
+};
+
+export type LiveFeedSnapshot = {
+	generatedAt: string;
+	remainingRequests: number | null;
+	fixtures: FeedFixture[];
+};
+
+const aliases: Record<string, string> = {
+	'czech republic': 'cze',
+	czechia: 'cze',
+	'south korea': 'kor',
+	'korea republic': 'kor',
+	'bosnia & herzegovina': 'bih',
+	'bosnia and herzegovina': 'bih',
+	'ivory coast': 'civ',
+	"cote d'ivoire": 'civ',
+	curacao: 'cuw',
+	curaçao: 'cuw',
+	'cape verde': 'cpv',
+	'cabo verde': 'cpv',
+	'cape verde islands': 'cpv',
+	'dr congo': 'cod',
+	'congo dr': 'cod',
+	turkey: 'tur',
+	turkiye: 'tur',
+	'usa': 'usa',
+	'united states': 'usa',
+};
+
+function normalizeName(value: string) {
+	return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+}
+
+function teamIdFor(name: string, teams: Team[]) {
+	const normalized = normalizeName(name);
+	const alias = aliases[normalized];
+	if (alias) return alias;
+	return teams.find((team) =>
+		normalizeName(team.name.en) === normalized ||
+		normalizeName(team.name.es) === normalized ||
+		team.code.toLowerCase() === normalized
+	)?.id;
+}
+
+function normalizeStatus(status: string): MatchStatus {
+	if (['TBD', 'NS', 'PST'].includes(status)) return 'scheduled';
+	if (status === 'HT') return 'halftime';
+	if (['FT', 'AET', 'PEN', 'AWD', 'WO', 'CANC', 'ABD'].includes(status)) return 'finished';
+	return 'live';
+}
+
+export function normalizeFeedMatches(snapshot: LiveFeedSnapshot, teams: Team[]): Match[] {
+	return snapshot.fixtures.flatMap((fixture) => {
+		const homeId = teamIdFor(fixture.home.name, teams);
+		const awayId = teamIdFor(fixture.away.name, teams);
+		if (!homeId || !awayId) return [];
+		const group = teams.find((team) => team.id === homeId)?.group;
+		if (!group || teams.find((team) => team.id === awayId)?.group !== group) return [];
+		return [{
+			id: `api-${fixture.id}`,
+			group: group as GroupId,
+			homeId,
+			awayId,
+			homeGoals: fixture.home.goals,
+			awayGoals: fixture.away.goals,
+			minute: fixture.elapsed,
+			status: normalizeStatus(fixture.status),
+		}];
+	});
+}

@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { calculateTournament, projectRoundOf32 } from '../lib/tournament';
 import { dataCutoff, groupIds, tournamentMatches, tournamentTeams } from '../lib/tournamentData';
 import type { GroupId, Match, Team } from '../lib/standings';
+import { normalizeFeedMatches, type LiveFeedSnapshot } from '../lib/liveFeed';
 
 type Language = 'es' | 'en';
 type View = 'groups' | 'thirds' | 'bracket';
@@ -33,6 +34,8 @@ const copy = {
 		match: 'Partido',
 		disclaimer: 'Modo simulación · Datos locales · Sitio independiente, no afiliado a FIFA.',
 		notifications: 'Avisarme',
+		connected: 'Datos en vivo',
+		local: 'Modo local',
 	},
 	en: {
 		live: 'LIVE SIMULATION',
@@ -59,6 +62,8 @@ const copy = {
 		match: 'Match',
 		disclaimer: 'Simulation mode · Local data · Independent site, not affiliated with FIFA.',
 		notifications: 'Notify me',
+		connected: 'Live data',
+		local: 'Local mode',
 	},
 } as const;
 
@@ -75,6 +80,8 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [view, setView] = useState<View>('groups');
 	const [matches, setMatches] = useState<Match[]>(tournamentMatches);
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
+	const [feedConnected, setFeedConnected] = useState(false);
 	const t = copy[language];
 
 	const projection = useMemo(
@@ -86,8 +93,31 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const selectedMatches = matches.filter((match) => match.group === selectedGroup);
 	const liveMatches = matches.filter((match) => match.status === 'live');
 	const cutoff = new Intl.DateTimeFormat(language, {
-		day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-	}).format(new Date(dataCutoff));
+		day: 'numeric', month: 'short', year: 'numeric',
+		hour: '2-digit', minute: '2-digit',
+	}).format(new Date(feedGeneratedAt ?? dataCutoff));
+
+	useEffect(() => {
+		let active = true;
+		const refresh = async () => {
+			try {
+				const response = await fetch('https://feed.fwc2026live.com/v1/world-cup');
+				if (!response.ok) throw new Error(`Feed ${response.status}`);
+				const snapshot = await response.json() as LiveFeedSnapshot;
+				const normalized = normalizeFeedMatches(snapshot, tournamentTeams);
+				if (active && normalized.length === 72) {
+					setMatches(normalized);
+					setFeedGeneratedAt(snapshot.generatedAt);
+					setFeedConnected(true);
+				}
+			} catch {
+				if (active) setFeedConnected(false);
+			}
+		};
+		void refresh();
+		const timer = window.setInterval(refresh, 30_000);
+		return () => { active = false; window.clearInterval(timer); };
+	}, []);
 
 	function updateScore(matchId: string, side: 'home' | 'away', change: number) {
 		setMatches((current) => current.map((match) => {
@@ -144,7 +174,9 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				<p className="eyebrow">WORLD CUP 2026 · GLOBAL PROJECTION</p>
 				<h1>{t.title}</h1>
 				<p>{t.subtitle}</p>
-				<small className="data-cutoff">{t.dataNote}: {cutoff}</small>
+				<small className={`data-cutoff ${feedConnected ? 'connected' : ''}`}>
+					<span /> {feedConnected ? t.connected : t.local} · {t.dataNote}: {cutoff}
+				</small>
 			</section>
 
 			<nav className="view-tabs" aria-label="Tournament views">

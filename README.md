@@ -59,6 +59,7 @@ npm run build
 - Provider-neutral live-data adapter
 - Raspberry Pi ingestion and observability service
 - Cloudflare edge cache and public delivery
+- Independent Raspberry Pi feed service (no Abril integration)
 
 ## Disclaimer
 

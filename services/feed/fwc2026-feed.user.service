@@ -1,0 +1,15 @@
+[Unit]
+Description=FWC2026 independent live football feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/luiti/fwc2026-feed
+EnvironmentFile=/home/luiti/fwc2026-feed/.env
+ExecStart=/usr/bin/python3 /home/luiti/fwc2026-feed/feed.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
