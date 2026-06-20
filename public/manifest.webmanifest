@@ -1,0 +1,12 @@
+{
+	"name": "World Cup 2026 Live Table",
+	"short_name": "Live Table 26",
+	"description": "Real-time World Cup 2026 standings and live match events.",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#080b10",
+	"theme_color": "#080b10",
+	"icons": [
+		{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+	]
+}

@@ -1,0 +1,44 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	lang: 'es' | 'en';
+	title: string;
+}
+
+const { lang, title } = Astro.props;
+const description =
+	lang === 'es'
+		? 'Resultados, eventos y cambios de clasificación del Mundial 2026 en tiempo real.'
+		: 'Live World Cup 2026 scores, events and real-time standings changes.';
+const canonicalPath = lang === 'es' ? '/' : '/en/';
+---
+
+<!doctype html>
+<html lang={lang}>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#080b10" />
+		<meta name="description" content={description} />
+		<meta name="robots" content="index, follow" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="canonical" href={canonicalPath} />
+		<link rel="alternate" hreflang="es" href="/" />
+		<link rel="alternate" hreflang="en" href="/en/" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content="/social-card.svg" />
+		<title>{title}</title>
+	</head>
+	<body>
+		<slot />
+		<script is:inline>
+			if ('serviceWorker' in navigator) {
+				window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+			}
+		</script>
+	</body>
+</html>

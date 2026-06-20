@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#080b10"/>
+  <circle cx="1040" cy="80" r="360" fill="#173527" opacity=".65"/>
+  <circle cx="80" cy="650" r="330" fill="#182d43" opacity=".55"/>
+  <text x="90" y="155" fill="#b7f34a" font-family="monospace" font-size="27" letter-spacing="7">WORLD CUP 2026</text>
+  <text x="90" y="290" fill="#f4f6f8" font-family="Arial, sans-serif" font-weight="700" font-size="92">Every goal.</text>
+  <text x="90" y="395" fill="#f4f6f8" font-family="Arial, sans-serif" font-weight="700" font-size="92">Every move.</text>
+  <text x="90" y="515" fill="#8e98a5" font-family="Arial, sans-serif" font-size="34">Live standings, calculated in real time.</text>
+</svg>
