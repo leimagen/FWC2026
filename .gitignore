@@ -17,6 +17,8 @@ pnpm-debug.log*
 .env
 .env.production
 .data/
+__pycache__/
+*.py[cod]
 
 # macOS-specific files
 .DS_Store
