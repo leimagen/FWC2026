@@ -38,8 +38,8 @@ button { color: inherit; }
 	border-bottom: 1px solid var(--line);
 }
 
-.brand { color: #fff; text-decoration: none; display: flex; align-items: center; gap: 11px; font-size: 13px; font-weight: 800; letter-spacing: .12em; }
-.brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #5fca6a; border-radius: 11px; color: var(--lime); font-family: var(--mono); letter-spacing: -.1em; padding-right: 3px; }
+.brand { display: flex; align-items: center; text-decoration: none; }
+.brand img { display: block; width: 196px; height: auto; }
 .top-actions, .language-switch { display: flex; align-items: center; gap: 8px; }
 
 .notify-button, .language-switch {
@@ -140,7 +140,7 @@ footer { padding: 30px 0 42px; color: #59616c; font-size: 10px; text-align: cent
 	.notify-button { width: 36px; height: 36px; padding: 0; overflow: hidden; white-space: nowrap; color: transparent; }
 	.notify-button span { color: var(--lime); margin: 0; }
 	.brand { font-size: 11px; }
-	.brand-mark { width: 32px; height: 32px; }
+	.brand img { width: 148px; }
 	.live-strip { margin-top: 10px; }
 	.live-label { writing-mode: vertical-rl; font-size: 8px; justify-content: center; padding: 8px; }
 	.hero h1 { font-size: 43px; }

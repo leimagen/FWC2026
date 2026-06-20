@@ -94,8 +94,12 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		<main className="app-shell">
 			<header className="topbar">
 				<a className="brand" href={language === 'es' ? '/' : '/en/'} aria-label="Home">
-					<span className="brand-mark">26</span>
-					<span>LIVE TABLE</span>
+					<img
+						src="/brand/fwc2026live-logo.png"
+						alt="FWC 2026 Live"
+						width="1457"
+						height="214"
+					/>
 				</a>
 				<div className="top-actions">
 					<button className="notify-button" type="button" onClick={requestNotifications}>

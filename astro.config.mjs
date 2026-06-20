@@ -5,6 +5,6 @@ import react from '@astrojs/react';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://fwc2026-live.pages.dev',
+  site: 'https://fwc2026live.com',
   integrations: [react()]
 });
