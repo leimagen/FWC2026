@@ -39,6 +39,7 @@ const copy = {
 		local: 'Modo local',
 		supportPrompt: '¿Te resulta útil?',
 		support: 'Apoya el proyecto',
+		contribute: 'Contribuir con',
 	},
 	en: {
 		live: 'LIVE SIMULATION',
@@ -70,6 +71,7 @@ const copy = {
 		local: 'Local mode',
 		supportPrompt: 'Finding it useful?',
 		support: 'Support the project',
+		contribute: 'Contribute with',
 	},
 } as const;
 
@@ -292,11 +294,18 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				</section>
 			)}
 
-			<footer>
-				<span>{t.disclaimer}</span>
-				<span className="footer-separator" aria-hidden="true">·</span>
-				<span>{t.supportPrompt} <a href="https://paypal.me/fwc2026" target="_blank" rel="noopener noreferrer">{t.support} ↗</a></span>
-			</footer>
+			<section className="support-card" aria-label={t.support}>
+				<div>
+					<img src="/brand/ball-icon.png" alt="" width="204" height="207" />
+					<span><small>{t.supportPrompt}</small><strong>{t.support}</strong></span>
+				</div>
+				<a href="https://paypal.me/fwc2026" target="_blank" rel="noopener noreferrer">
+					<span>{t.contribute}</span>
+					<b>PayPal</b>
+				</a>
+			</section>
+
+			<footer>{t.disclaimer}</footer>
 		</main>
 	);
 }

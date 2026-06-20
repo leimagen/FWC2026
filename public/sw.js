@@ -1,5 +1,5 @@
-const CACHE = 'fwc2026-shell-v1';
-const SHELL = ['/', '/en/', '/manifest.webmanifest', '/favicon.svg'];
+const CACHE = 'fwc2026-shell-v2';
+const SHELL = ['/', '/en/', '/manifest.webmanifest', '/favicon.ico', '/favicon.png', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -33,7 +33,7 @@ self.addEventListener('push', (event) => {
 	event.waitUntil(
 		self.registration.showNotification(data.title ?? 'World Cup 2026', {
 			body: data.body ?? 'The live table has changed.',
-			icon: '/favicon.svg',
+			icon: '/icon-192.png',
 			data: { url: data.url ?? '/' },
 		}),
 	);
