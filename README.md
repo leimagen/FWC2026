@@ -10,9 +10,11 @@ The first public prototype includes:
 
 - Responsive dark-mode dashboard
 - Spanish and English interfaces
-- Two simultaneous simulated matches
-- Animated provisional standings
-- Initial FIFA 2026 group tiebreak logic
+- All 48 teams and 12 groups
+- Two simultaneous simulated matches that affect the global tournament
+- Animated provisional standings and best-third ranking
+- Round-of-32 projection
+- FIFA 2026 head-to-head, overall, fair-play and ranking tiebreak logic
 - Installable PWA shell and Web Push service worker
 - SEO and social metadata foundations
 

@@ -1,81 +1,100 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { completedMatches, initialLiveMatches, teams } from '../lib/demoData';
-import { calculateStandings, type Match, type Team } from '../lib/standings';
+import { calculateTournament, projectRoundOf32 } from '../lib/tournament';
+import { dataCutoff, groupIds, tournamentMatches, tournamentTeams } from '../lib/tournamentData';
+import type { GroupId, Match, Team } from '../lib/standings';
 
 type Language = 'es' | 'en';
+type View = 'groups' | 'thirds' | 'bracket';
 
 const copy = {
 	es: {
-		live: 'EN VIVO',
-		title: 'La tabla se mueve con cada gol.',
-		subtitle: 'Clasificación provisional del Mundial 2026, calculada con los marcadores de este instante.',
-		group: 'Grupo demo',
-		simulation: 'Simulación en vivo',
-		simulationNote: 'Añade un gol y observa cómo ambos partidos alteran la tabla.',
+		live: 'SIMULACIÓN EN VIVO',
+		title: 'Un gol mueve todo el Mundial.',
+		subtitle: 'Clasificación provisional de los 12 grupos, mejores terceros y cruces recalculados al instante.',
+		groups: 'Grupos',
+		thirds: 'Mejores terceros',
+		bracket: 'Cruces',
+		group: 'Grupo',
 		played: 'PJ',
 		goalDifference: 'DG',
 		points: 'PTS',
 		qualified: 'Clasifica',
-		third: 'Mejor 3.º',
+		bestThird: 'Mejor 3.º',
 		out: 'Fuera',
-		events: 'Últimos eventos',
-		goal: 'Gol',
+		control: 'Control de simulación',
+		controlNote: 'Los dos partidos del Grupo E se calculan como si terminaran con este marcador.',
+		dataNote: 'Resultados locales con corte',
+		next: 'Próximos partidos',
+		noLive: 'Este grupo no tiene una simulación activa.',
+		thirdNote: 'Los ocho primeros avanzan provisionalmente a dieciseisavos.',
+		round: 'Dieciseisavos proyectados',
+		thirdPool: 'Mejor 3.º de',
+		match: 'Partido',
+		disclaimer: 'Modo simulación · Datos locales · Sitio independiente, no afiliado a FIFA.',
 		notifications: 'Avisarme',
-		mute: 'Mutear partido',
-		disclaimer: 'Demo con datos simulados · Sitio independiente, no afiliado a FIFA.',
-		liveStatus: '2T',
 	},
 	en: {
-		live: 'LIVE',
-		title: 'The table moves with every goal.',
-		subtitle: 'Provisional World Cup 2026 standings, calculated from the scores at this very moment.',
-		group: 'Demo group',
-		simulation: 'Live simulation',
-		simulationNote: 'Add a goal and watch both matches reshape the table.',
+		live: 'LIVE SIMULATION',
+		title: 'One goal moves the whole World Cup.',
+		subtitle: 'All 12 groups, best third-placed teams and knockout slots recalculated instantly.',
+		groups: 'Groups',
+		thirds: 'Best thirds',
+		bracket: 'Bracket',
+		group: 'Group',
 		played: 'P',
 		goalDifference: 'GD',
 		points: 'PTS',
 		qualified: 'Advances',
-		third: 'Best 3rd',
+		bestThird: 'Best 3rd',
 		out: 'Out',
-		events: 'Latest events',
-		goal: 'Goal',
+		control: 'Simulation control',
+		controlNote: 'Both Group E matches are calculated as if these scores held until full time.',
+		dataNote: 'Local results as of',
+		next: 'Upcoming matches',
+		noLive: 'This group has no active simulation.',
+		thirdNote: 'The top eight provisionally advance to the round of 32.',
+		round: 'Projected round of 32',
+		thirdPool: 'Best 3rd from',
+		match: 'Match',
+		disclaimer: 'Simulation mode · Local data · Independent site, not affiliated with FIFA.',
 		notifications: 'Notify me',
-		mute: 'Mute match',
-		disclaimer: 'Demo using simulated data · Independent site, not affiliated with FIFA.',
-		liveStatus: '2H',
 	},
 } as const;
 
-function teamById(id: string): Team {
-	return teams.find((team) => team.id === id)!;
+const teamMap = new Map(tournamentTeams.map((team) => [team.id, team]));
+const teamById = (id: string) => teamMap.get(id)!;
+
+function TeamLabel({ team, language }: { team: Team; language: Language }) {
+	return <><span className="flag-plain">{team.flag}</span><span>{team.name[language]}</span></>;
 }
 
 export default function LiveDashboard({ initialLanguage }: { initialLanguage: Language }) {
 	const [language, setLanguage] = useState<Language>(initialLanguage);
-	const [matches, setMatches] = useState<Match[]>(initialLiveMatches);
-	const [muted, setMuted] = useState<string[]>([]);
-	const [lastEvent, setLastEvent] = useState<string>('jpn');
+	const [selectedGroup, setSelectedGroup] = useState<GroupId>('E');
+	const [view, setView] = useState<View>('groups');
+	const [matches, setMatches] = useState<Match[]>(tournamentMatches);
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const t = copy[language];
 
-	const standings = useMemo(
-		() => calculateStandings(teams, [...completedMatches, ...matches]),
+	const projection = useMemo(
+		() => calculateTournament(tournamentTeams, matches),
 		[matches],
 	);
+	const bracket = useMemo(() => projectRoundOf32(projection.groups), [projection.groups]);
+	const selectedTable = projection.groups[selectedGroup];
+	const selectedMatches = matches.filter((match) => match.group === selectedGroup);
+	const liveMatches = matches.filter((match) => match.status === 'live');
+	const cutoff = new Intl.DateTimeFormat(language, {
+		day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+	}).format(new Date(dataCutoff));
 
 	function updateScore(matchId: string, side: 'home' | 'away', change: number) {
-		setMatches((current) =>
-			current.map((match) => {
-				if (match.id !== matchId) return match;
-				const key = side === 'home' ? 'homeGoals' : 'awayGoals';
-				const scorerId = side === 'home' ? match.homeId : match.awayId;
-				const next = Math.max(0, match[key] + change);
-				if (change > 0) setLastEvent(scorerId);
-				return { ...match, [key]: next };
-			}),
-		);
+		setMatches((current) => current.map((match) => {
+			if (match.id !== matchId) return match;
+			const key = side === 'home' ? 'homeGoals' : 'awayGoals';
+			return { ...match, [key]: Math.max(0, match[key] + change) };
+		}));
 	}
 
 	function switchLanguage(next: Language) {
@@ -94,12 +113,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		<main className="app-shell">
 			<header className="topbar">
 				<a className="brand" href={language === 'es' ? '/' : '/en/'} aria-label="Home">
-					<img
-						src="/brand/fwc2026live-logo.png"
-						alt="FWC 2026 Live"
-						width="1457"
-						height="214"
-					/>
+					<img src="/brand/fwc2026live-logo.png" alt="FWC 2026 Live" width="1457" height="214" />
 				</a>
 				<div className="top-actions">
 					<button className="notify-button" type="button" onClick={requestNotifications}>
@@ -115,106 +129,130 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 			<section className="live-strip" aria-label={t.live}>
 				<div className="live-label"><span />{t.live}</div>
 				<div className="ticker">
-					{matches.map((match) => (
-						<div className="ticker-match" key={match.id}>
+					{liveMatches.map((match) => (
+						<button className="ticker-match" key={match.id} onClick={() => { setSelectedGroup(match.group); setView('groups'); }}>
 							<span>{teamById(match.homeId).flag} {teamById(match.homeId).code}</span>
 							<strong>{match.homeGoals}–{match.awayGoals}</strong>
 							<span>{teamById(match.awayId).code} {teamById(match.awayId).flag}</span>
-							<small>{match.minute}' · {t.liveStatus}</small>
-						</div>
+							<small>{match.minute}'</small>
+						</button>
 					))}
 				</div>
 			</section>
 
-			<section className="hero">
-				<p className="eyebrow">WORLD CUP 2026 · LIVE PROJECTION</p>
+			<section className="hero compact-hero">
+				<p className="eyebrow">WORLD CUP 2026 · GLOBAL PROJECTION</p>
 				<h1>{t.title}</h1>
 				<p>{t.subtitle}</p>
+				<small className="data-cutoff">{t.dataNote}: {cutoff}</small>
 			</section>
 
-			<div className="dashboard-grid">
-				<section className="panel standings-panel">
-					<div className="panel-heading">
-						<div>
-							<p className="section-kicker">{t.live} · 67'</p>
-							<h2>{t.group}</h2>
-						</div>
-						<div className="legend">
-							<span><i className="dot green" />{t.qualified}</span>
-							<span><i className="dot amber" />{t.third}</span>
-						</div>
+			<nav className="view-tabs" aria-label="Tournament views">
+				<button className={view === 'groups' ? 'active' : ''} onClick={() => setView('groups')}>{t.groups}</button>
+				<button className={view === 'thirds' ? 'active' : ''} onClick={() => setView('thirds')}>{t.thirds}</button>
+				<button className={view === 'bracket' ? 'active' : ''} onClick={() => setView('bracket')}>{t.bracket}</button>
+			</nav>
+
+			{view === 'groups' && (
+				<>
+					<div className="group-tabs">
+						{groupIds.map((group) => {
+							const leader = projection.groups[group][0];
+							return (
+								<button key={group} className={selectedGroup === group ? 'active' : ''} onClick={() => setSelectedGroup(group)}>
+									<span>{group}</span><small>{leader.team.flag} {leader.team.code}</small>
+								</button>
+							);
+						})}
 					</div>
 
-					<div className="table-head">
-						<span>#</span><span>TEAM</span><span>{t.played}</span><span>{t.goalDifference}</span><span>{t.points}</span>
+					<div className="dashboard-grid">
+						<section className="panel standings-panel">
+							<div className="panel-heading">
+								<div><p className="section-kicker">48 TEAMS · 12 GROUPS</p><h2>{t.group} {selectedGroup}</h2></div>
+								<div className="legend">
+									<span><i className="dot green" />{t.qualified}</span>
+									<span><i className="dot amber" />{t.bestThird}</span>
+								</div>
+							</div>
+							<div className="table-head"><span>#</span><span>TEAM</span><span>{t.played}</span><span>{t.goalDifference}</span><span>{t.points}</span></div>
+							<div className="standings-list">
+								<AnimatePresence initial={false}>
+									{selectedTable.map((row) => {
+										const third = projection.thirds.find((item) => item.team.id === row.team.id);
+										return (
+											<motion.div layout transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+												className={`standing-row position-${row.position} ${third?.qualifies ? 'third-qualified' : ''}`} key={row.team.id}>
+												<span className="position">{row.position}</span>
+												<span className="team-name"><b className="flag">{row.team.flag}</b><span><strong>{row.team.name[language]}</strong><small>{row.team.code}</small></span></span>
+												<span>{row.played}</span><span>{row.goalDifference > 0 ? '+' : ''}{row.goalDifference}</span><strong className="points">{row.points}</strong>
+											</motion.div>
+										);
+									})}
+								</AnimatePresence>
+							</div>
+						</section>
+
+						<aside className="side-column">
+							<section className="panel simulation-panel">
+								<div className="panel-heading compact"><div><p className="section-kicker">CONTROL ROOM</p><h2>{t.control}</h2></div></div>
+								<p className="panel-note">{selectedGroup === 'E' ? t.controlNote : t.noLive}</p>
+								{selectedMatches.filter((match) => match.status === 'live').map((match) => (
+									<div className="match-control" key={match.id}>
+										<div className="match-meta"><span className="pulse" /> {match.minute}' · {t.group} {match.group}</div>
+										{(['home', 'away'] as const).map((side) => {
+											const id = side === 'home' ? match.homeId : match.awayId;
+											const score = side === 'home' ? match.homeGoals : match.awayGoals;
+											const team = teamById(id);
+											return <div className="score-control" key={side}>
+												<span><TeamLabel team={team} language={language} /></span>
+												<div><button onClick={() => updateScore(match.id, side, -1)}>−</button><b>{score}</b><button onClick={() => updateScore(match.id, side, 1)}>+</button></div>
+											</div>;
+										})}
+									</div>
+								))}
+								{selectedMatches.filter((match) => match.status === 'scheduled').slice(0, 2).map((match) => (
+									<div className="upcoming-match" key={match.id}>
+										<span>{teamById(match.homeId).code}</span><b>vs</b><span>{teamById(match.awayId).code}</span>
+									</div>
+								))}
+							</section>
+						</aside>
 					</div>
-					<div className="standings-list">
-						<AnimatePresence initial={false}>
-							{standings.map((row) => (
-								<motion.div
-									layout
-									transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-									className={`standing-row position-${row.position}`}
-									key={row.team.id}
-								>
-									<span className="position">{row.position}</span>
-									<span className="team-name">
-										<b className="flag">{row.team.flag}</b>
-										<span><strong>{row.team.name[language]}</strong><small>{row.team.code}</small></span>
-									</span>
-									<span>{row.played}</span>
-									<span>{row.goalDifference > 0 ? '+' : ''}{row.goalDifference}</span>
-									<strong className="points">{row.points}</strong>
-								</motion.div>
-							))}
-						</AnimatePresence>
+				</>
+			)}
+
+			{view === 'thirds' && (
+				<section className="panel wide-panel">
+					<div className="panel-heading"><div><p className="section-kicker">8 OF 12 ADVANCE</p><h2>{t.thirds}</h2><p className="panel-note inline-note">{t.thirdNote}</p></div></div>
+					<div className="thirds-grid">
+						{projection.thirds.map((row) => (
+							<motion.div layout className={`third-row ${row.qualifies ? 'qualifies' : ''}`} key={row.team.id}>
+								<b>{row.thirdPosition}</b><span className="third-group">{row.group}</span>
+								<span className="third-team"><TeamLabel team={row.team} language={language} /></span>
+								<span>{row.points} pts</span><span>{row.goalDifference > 0 ? '+' : ''}{row.goalDifference}</span>
+								<small>{row.qualifies ? t.qualified : t.out}</small>
+							</motion.div>
+						))}
 					</div>
 				</section>
+			)}
 
-				<aside className="side-column">
-					<section className="panel simulation-panel">
-						<div className="panel-heading compact">
-							<div><p className="section-kicker">CONTROL ROOM</p><h2>{t.simulation}</h2></div>
-						</div>
-						<p className="panel-note">{t.simulationNote}</p>
-						{matches.map((match) => (
-							<div className="match-control" key={match.id}>
-								<div className="match-meta">
-									<span className="pulse" /> {match.minute}' · {t.liveStatus}
-									<button
-										className={muted.includes(match.id) ? 'muted' : ''}
-										onClick={() => setMuted((items) => items.includes(match.id) ? items.filter((id) => id !== match.id) : [...items, match.id])}
-										title={t.mute}
-									>⌁</button>
-								</div>
-								{(['home', 'away'] as const).map((side) => {
-									const id = side === 'home' ? match.homeId : match.awayId;
-									const score = side === 'home' ? match.homeGoals : match.awayGoals;
-									const team = teamById(id);
-									return (
-										<div className="score-control" key={side}>
-											<span>{team.flag} <strong>{team.name[language]}</strong></span>
-											<div>
-												<button onClick={() => updateScore(match.id, side, -1)} aria-label={`Remove ${team.code} goal`}>−</button>
-												<b>{score}</b>
-												<button onClick={() => updateScore(match.id, side, 1)} aria-label={`Add ${team.code} goal`}>+</button>
-											</div>
-										</div>
-									);
-								})}
+			{view === 'bracket' && (
+				<section className="panel wide-panel">
+					<div className="panel-heading"><div><p className="section-kicker">MATCHES 73–88</p><h2>{t.round}</h2></div></div>
+					<div className="bracket-grid">
+						{bracket.map((slot) => (
+							<div className="bracket-match" key={slot.match}>
+								<small>{t.match} {slot.match}</small>
+								<div>{slot.homeTeamId ? <TeamLabel team={teamById(slot.homeTeamId)} language={language} /> : slot.home}</div>
+								<i>vs</i>
+								<div>{slot.awayTeamId ? <TeamLabel team={teamById(slot.awayTeamId)} language={language} /> : slot.away.replace('3rd ', `${t.thirdPool} `)}</div>
 							</div>
 						))}
-					</section>
-
-					<section className="panel event-panel">
-						<p className="section-kicker">{t.events}</p>
-						<div className="event">
-							<span className="event-icon">⚽</span>
-							<div><strong>{t.goal} · {teamById(lastEvent).name[language]}</strong><small>67' · {teamById(lastEvent).code}</small></div>
-						</div>
-					</section>
-				</aside>
-			</div>
+					</div>
+				</section>
+			)}
 
 			<footer>{t.disclaimer}</footer>
 		</main>

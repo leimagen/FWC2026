@@ -1,19 +1,29 @@
+export type GroupId =
+	| 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+	| 'G' | 'H' | 'I' | 'J' | 'K' | 'L';
+
 export type Team = {
 	id: string;
+	group: GroupId;
 	name: { es: string; en: string };
 	code: string;
 	flag: string;
 	ranking: number;
+	fairPlay?: number;
 };
+
+export type MatchStatus = 'scheduled' | 'live' | 'halftime' | 'finished';
 
 export type Match = {
 	id: string;
+	group: GroupId;
 	homeId: string;
 	awayId: string;
 	homeGoals: number;
 	awayGoals: number;
-	minute: number;
-	status: 'live' | 'halftime' | 'finished';
+	minute: number | null;
+	status: MatchStatus;
+	simulated?: boolean;
 };
 
 export type Standing = {
@@ -26,12 +36,13 @@ export type Standing = {
 	goalsAgainst: number;
 	goalDifference: number;
 	points: number;
+	fairPlay: number;
 	position: number;
 };
 
-type HeadToHead = Map<string, Omit<Standing, 'team' | 'position'>>;
+type Stats = Omit<Standing, 'team' | 'position'>;
 
-const emptyStats = () => ({
+const emptyStats = (fairPlay = 0): Stats => ({
 	played: 0,
 	won: 0,
 	drawn: 0,
@@ -40,12 +51,15 @@ const emptyStats = () => ({
 	goalsAgainst: 0,
 	goalDifference: 0,
 	points: 0,
+	fairPlay,
 });
 
-function applyMatch(
-	stats: Map<string, ReturnType<typeof emptyStats>>,
-	match: Match,
-) {
+function isCounted(match: Match) {
+	return match.status !== 'scheduled';
+}
+
+function applyMatch(stats: Map<string, Stats>, match: Match) {
+	if (!isCounted(match)) return;
 	const home = stats.get(match.homeId);
 	const away = stats.get(match.awayId);
 	if (!home || !away) return;
@@ -76,47 +90,106 @@ function applyMatch(
 	away.goalDifference = away.goalsFor - away.goalsAgainst;
 }
 
-function headToHeadFor(teamIds: string[], matches: Match[]): HeadToHead {
-	const stats = new Map(teamIds.map((id) => [id, emptyStats()]));
-	for (const match of matches) {
-		if (teamIds.includes(match.homeId) && teamIds.includes(match.awayId)) {
-			applyMatch(stats, match);
-		}
-	}
+function statsFor(teams: Team[], matches: Match[]) {
+	const stats = new Map(teams.map((team) => [team.id, emptyStats(team.fairPlay)]));
+	for (const match of matches) applyMatch(stats, match);
 	return stats;
 }
 
-export function calculateStandings(teams: Team[], matches: Match[]): Standing[] {
-	const stats = new Map(teams.map((team) => [team.id, emptyStats()]));
-	for (const match of matches) applyMatch(stats, match);
+function splitBy<T>(items: T[], value: (item: T) => string | number): T[][] {
+	const groups: T[][] = [];
+	for (const item of items) {
+		const last = groups.at(-1);
+		if (!last || value(last[0]) !== value(item)) groups.push([item]);
+		else last.push(item);
+	}
+	return groups;
+}
 
-	const rows = teams.map((team) => ({ team, ...stats.get(team.id)! }));
-	const h2hCache = new Map<string, HeadToHead>();
+function rankTiedRows(rows: Standing[], matches: Match[]): Standing[] {
+	if (rows.length < 2) return rows;
+	const ids = new Set(rows.map((row) => row.team.id));
+	const h2h = statsFor(
+		rows.map((row) => row.team),
+		matches.filter((match) => ids.has(match.homeId) && ids.has(match.awayId)),
+	);
 
-	rows.sort((a, b) => {
-		if (a.points !== b.points) return b.points - a.points;
-
-		const tiedIds = rows
-			.filter((row) => row.points === a.points)
-			.map((row) => row.team.id)
-			.sort();
-		const cacheKey = tiedIds.join(':');
-		if (!h2hCache.has(cacheKey)) {
-			h2hCache.set(cacheKey, headToHeadFor(tiedIds, matches));
-		}
-		const h2h = h2hCache.get(cacheKey)!;
-		const h2hA = h2h.get(a.team.id)!;
-		const h2hB = h2h.get(b.team.id)!;
-
-		if (h2hA.points !== h2hB.points) return h2hB.points - h2hA.points;
-		if (h2hA.goalDifference !== h2hB.goalDifference) {
-			return h2hB.goalDifference - h2hA.goalDifference;
-		}
-		if (h2hA.goalsFor !== h2hB.goalsFor) return h2hB.goalsFor - h2hA.goalsFor;
-		if (a.goalDifference !== b.goalDifference) return b.goalDifference - a.goalDifference;
-		if (a.goalsFor !== b.goalsFor) return b.goalsFor - a.goalsFor;
-		return a.team.ranking - b.team.ranking;
+	const h2hSorted = [...rows].sort((a, b) => {
+		const sa = h2h.get(a.team.id)!;
+		const sb = h2h.get(b.team.id)!;
+		return (
+			sb.points - sa.points ||
+			sb.goalDifference - sa.goalDifference ||
+			sb.goalsFor - sa.goalsFor
+		);
 	});
 
-	return rows.map((row, index) => ({ ...row, position: index + 1 }));
+	const h2hGroups = splitBy(
+		h2hSorted,
+		(row) => {
+			const stat = h2h.get(row.team.id)!;
+			return `${stat.points}:${stat.goalDifference}:${stat.goalsFor}`;
+		},
+	);
+
+	return h2hGroups.flatMap((group) => {
+		if (group.length > 1 && group.length < rows.length) {
+			return rankTiedRows(group, matches);
+		}
+		return [...group].sort(
+			(a, b) =>
+				b.goalDifference - a.goalDifference ||
+				b.goalsFor - a.goalsFor ||
+				b.fairPlay - a.fairPlay ||
+				a.team.ranking - b.team.ranking,
+		);
+	});
+}
+
+export function calculateStandings(teams: Team[], matches: Match[]): Standing[] {
+	const stats = statsFor(teams, matches);
+	const rows: Standing[] = teams.map((team) => ({
+		team,
+		...stats.get(team.id)!,
+		position: 0,
+	}));
+
+	const byPoints = [...rows].sort((a, b) => b.points - a.points);
+	const ranked = splitBy(byPoints, (row) => row.points).flatMap((group) =>
+		rankTiedRows(group, matches),
+	);
+
+	return ranked.map((row, index) => ({ ...row, position: index + 1 }));
+}
+
+export type ThirdPlaceStanding = Standing & {
+	group: GroupId;
+	thirdPosition: number;
+	qualifies: boolean;
+};
+
+export function rankThirdPlaced(
+	groupStandings: Record<GroupId, Standing[]>,
+): ThirdPlaceStanding[] {
+	const thirds = (Object.keys(groupStandings) as GroupId[]).map((group) => ({
+		...groupStandings[group][2],
+		group,
+		thirdPosition: 0,
+		qualifies: false,
+	}));
+
+	thirds.sort(
+		(a, b) =>
+			b.points - a.points ||
+			b.goalDifference - a.goalDifference ||
+			b.goalsFor - a.goalsFor ||
+			b.fairPlay - a.fairPlay ||
+			a.team.ranking - b.team.ranking,
+	);
+
+	return thirds.map((row, index) => ({
+		...row,
+		thirdPosition: index + 1,
+		qualifies: index < 8,
+	}));
 }
