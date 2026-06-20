@@ -11,6 +11,7 @@
     "test": "vitest run",
     "check": "astro check",
     "api:discover": "node --env-file=.env scripts/discover-api-football.mjs",
+    "api:sync": "node --env-file=.env scripts/sync-world-cup.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },

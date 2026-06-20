@@ -29,6 +29,14 @@ npm run api:discover
 
 The command searches the authenticated account for current World Cup/FIFA competitions and writes a private report to `.data/api-football/discovery.json`.
 
+With a subscription that includes the 2026 season, download a private tournament snapshot:
+
+```bash
+npm run api:sync
+```
+
+API-Football's Free plan exposes competition metadata but currently restricts fixture data to older seasons. No API responses or credentials are committed.
+
 ## Development
 
 ```bash

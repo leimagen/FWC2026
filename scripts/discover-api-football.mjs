@@ -59,8 +59,8 @@ console.log('Checking account status and searching for World Cup competitions…
 
 const [status, worldCupSearch, fifaSearch] = await Promise.all([
 	apiGet('/status'),
-	apiGet('/leagues', { search: 'World Cup', current: 'true' }),
-	apiGet('/leagues', { search: 'FIFA', current: 'true' }),
+	apiGet('/leagues', { search: 'World Cup' }),
+	apiGet('/leagues', { search: 'FIFA' }),
 ]);
 
 const leagues = [...worldCupSearch.response, ...fifaSearch.response]
