@@ -162,7 +162,10 @@ button { color: inherit; }
 .event > div { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .event small { color: var(--muted); font: 400 10px var(--mono); }
 
-footer { padding: 30px 0 42px; color: #59616c; font-size: 10px; text-align: center; }
+footer { padding: 30px 0 42px; color: #59616c; font-size: 10px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+footer a { color: #8d97a3; text-decoration: none; border-bottom: 1px solid rgba(141,151,163,.35); transition: color .2s ease, border-color .2s ease; }
+footer a:hover, footer a:focus-visible { color: var(--lime); border-color: var(--lime); }
+.footer-separator { color: #333a44; }
 
 @media (max-width: 820px) {
 	.app-shell { width: min(100% - 20px, 680px); }
@@ -202,6 +205,9 @@ footer { padding: 30px 0 42px; color: #59616c; font-size: 10px; text-align: cent
 	.thirds-grid { grid-template-columns: 1fr; }
 	.third-row { grid-template-columns: 25px 31px minmax(110px,1fr) 47px 38px 55px; padding: 0 10px; font-size: 10px; }
 	.bracket-grid { grid-template-columns: 1fr; padding: 10px; }
+	footer { padding-inline: 14px; line-height: 1.6; }
+	.footer-separator { display: none; }
+	footer > span { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

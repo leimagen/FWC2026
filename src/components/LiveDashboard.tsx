@@ -26,6 +26,7 @@ const copy = {
 		control: 'Control de simulación',
 		controlNote: 'Los dos partidos del Grupo E se calculan como si terminaran con este marcador.',
 		dataNote: 'Resultados locales con corte',
+		updated: 'Actualizado',
 		next: 'Próximos partidos',
 		noLive: 'Este grupo no tiene una simulación activa.',
 		thirdNote: 'Los ocho primeros avanzan provisionalmente a dieciseisavos.',
@@ -36,6 +37,8 @@ const copy = {
 		notifications: 'Avisarme',
 		connected: 'Datos en vivo',
 		local: 'Modo local',
+		supportPrompt: '¿Te resulta útil?',
+		support: 'Apoya el proyecto',
 	},
 	en: {
 		live: 'LIVE SIMULATION',
@@ -54,6 +57,7 @@ const copy = {
 		control: 'Simulation control',
 		controlNote: 'Both Group E matches are calculated as if these scores held until full time.',
 		dataNote: 'Local results as of',
+		updated: 'Updated',
 		next: 'Upcoming matches',
 		noLive: 'This group has no active simulation.',
 		thirdNote: 'The top eight provisionally advance to the round of 32.',
@@ -64,6 +68,8 @@ const copy = {
 		notifications: 'Notify me',
 		connected: 'Live data',
 		local: 'Local mode',
+		supportPrompt: 'Finding it useful?',
+		support: 'Support the project',
 	},
 } as const;
 
@@ -175,7 +181,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				<h1>{t.title}</h1>
 				<p>{t.subtitle}</p>
 				<small className={`data-cutoff ${feedConnected ? 'connected' : ''}`}>
-					<span /> {feedConnected ? t.connected : t.local} · {t.dataNote}: {cutoff}
+					<span /> {feedConnected ? t.connected : t.local} · {feedConnected ? t.updated : t.dataNote}: {cutoff}
 				</small>
 			</section>
 
@@ -286,7 +292,11 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				</section>
 			)}
 
-			<footer>{t.disclaimer}</footer>
+			<footer>
+				<span>{t.disclaimer}</span>
+				<span className="footer-separator" aria-hidden="true">·</span>
+				<span>{t.supportPrompt} <a href="https://paypal.me/fwc2026" target="_blank" rel="noopener noreferrer">{t.support} ↗</a></span>
+			</footer>
 		</main>
 	);
 }
