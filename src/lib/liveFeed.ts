@@ -102,3 +102,23 @@ export function normalizeFeedMatches(snapshot: LiveFeedSnapshot, teams: Team[]):
 		}];
 	});
 }
+
+export function contextualGroup(
+	matches: Match[],
+	fixtures: FeedFixture[],
+	now = Date.now(),
+): GroupId | null {
+	const active = matches.find((match) =>
+		match.status === 'live' || match.status === 'halftime',
+	);
+	if (active) return active.group;
+
+	const kickoffByMatchId = new Map(
+		fixtures.map((fixture) => [`api-${fixture.id}`, new Date(fixture.kickoff).getTime()]),
+	);
+	return matches
+		.filter((match) => match.status === 'scheduled')
+		.map((match) => ({ match, kickoff: kickoffByMatchId.get(match.id) ?? 0 }))
+		.filter(({ kickoff }) => kickoff > now)
+		.sort((a, b) => a.kickoff - b.kickoff)[0]?.match.group ?? null;
+}

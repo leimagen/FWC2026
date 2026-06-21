@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateTournament, projectRoundOf32 } from '../lib/tournament';
 import { dataCutoff, groupIds, tournamentMatches, tournamentTeams } from '../lib/tournamentData';
 import type { GroupId, Match, Team } from '../lib/standings';
-import { normalizeFeedMatches, type FeedEvent, type FeedFixture, type LiveFeedSnapshot } from '../lib/liveFeed';
+import { contextualGroup, normalizeFeedMatches, type FeedEvent, type FeedFixture, type LiveFeedSnapshot } from '../lib/liveFeed';
 
 type Language = 'es' | 'en';
 type View = 'groups' | 'thirds' | 'bracket';
@@ -12,6 +12,10 @@ type AnalyticsStatus = 'idle' | 'loading' | 'loaded' | 'blocked';
 
 const GA_MEASUREMENT_ID = 'G-DP2FPQ0D8Z';
 const ACTIVE_MATCH_STATUSES = new Set(['live', 'halftime']);
+const ACTIVE_FEED_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'INT', 'SUSP']);
+const LIVE_REFRESH_MS = 5_000;
+const RETRY_REFRESH_MS = 30_000;
+const PRE_MATCH_WAKE_MS = 2 * 60_000;
 
 const copy = {
 	es: {
@@ -173,6 +177,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
 	const [feedConnected, setFeedConnected] = useState(false);
 	const [feedFixtures, setFeedFixtures] = useState<FeedFixture[]>([]);
+	const groupSelectionInitialized = useRef(false);
 	const t = copy[language];
 
 	const effectiveMatches = useMemo(() => matches.map((match) => {
@@ -202,6 +207,28 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 
 	useEffect(() => {
 		let active = true;
+		let timer: number | undefined;
+
+		const scheduleNextRefresh = (snapshot: LiveFeedSnapshot) => {
+			window.clearTimeout(timer);
+			if (snapshot.fixtures.some((fixture) => ACTIVE_FEED_STATUSES.has(fixture.status))) {
+				timer = window.setTimeout(refresh, LIVE_REFRESH_MS);
+				return;
+			}
+			const now = Date.now();
+			const nextKickoff = snapshot.fixtures
+				.filter((fixture) => ['TBD', 'NS'].includes(fixture.status))
+				.map((fixture) => new Date(fixture.kickoff).getTime())
+				.filter((kickoff) => kickoff > now)
+				.sort((a, b) => a - b)[0];
+			if (nextKickoff) {
+				timer = window.setTimeout(
+					refresh,
+					Math.max(1_000, nextKickoff - now - PRE_MATCH_WAKE_MS),
+				);
+			}
+		};
+
 		const refresh = async () => {
 			try {
 				const response = await fetch('https://feed.fwc2026live.com/v1/world-cup');
@@ -213,14 +240,33 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 					setFeedGeneratedAt(snapshot.generatedAt);
 					setFeedFixtures(snapshot.fixtures);
 					setFeedConnected(true);
+					if (!groupSelectionInitialized.current) {
+						setSelectedGroup(contextualGroup(
+							normalized,
+							snapshot.fixtures,
+						) ?? normalized[0].group);
+						groupSelectionInitialized.current = true;
+					}
+					scheduleNextRefresh(snapshot);
 				}
 			} catch {
-				if (active) setFeedConnected(false);
+				if (active) {
+					setFeedConnected(false);
+					timer = window.setTimeout(refresh, RETRY_REFRESH_MS);
+				}
 			}
 		};
+
+		const refreshOnVisible = () => {
+			if (document.visibilityState === 'visible') void refresh();
+		};
 		void refresh();
-		const timer = window.setInterval(refresh, 5_000);
-		return () => { active = false; window.clearInterval(timer); };
+		document.addEventListener('visibilitychange', refreshOnVisible);
+		return () => {
+			active = false;
+			window.clearTimeout(timer);
+			document.removeEventListener('visibilitychange', refreshOnVisible);
+		};
 	}, []);
 
 	useEffect(() => {
@@ -396,7 +442,11 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 									match={match}
 									language={language}
 									copy={t}
-									onSelect={() => { setSelectedGroup(match.group); setView('groups'); }}
+									onSelect={() => {
+										groupSelectionInitialized.current = true;
+										setSelectedGroup(match.group);
+										setView('groups');
+									}}
 								/>
 							);
 						})}
@@ -424,7 +474,10 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 						{groupIds.map((group) => {
 							const leader = projection.groups[group][0];
 							return (
-								<button key={group} className={selectedGroup === group ? 'active' : ''} onClick={() => setSelectedGroup(group)}>
+								<button key={group} className={selectedGroup === group ? 'active' : ''} onClick={() => {
+									groupSelectionInitialized.current = true;
+									setSelectedGroup(group);
+								}}>
 									<span>{group}</span><small><TeamFlag team={leader.team} compact /> {leader.team.code}</small>
 								</button>
 							);
