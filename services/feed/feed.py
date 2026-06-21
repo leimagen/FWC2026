@@ -169,7 +169,9 @@ def notification_events(
             elif event["type"] == "Card" and "Red" in (event["detail"] or ""):
                 notifications.append({"kind": "red-card", "fixture": fixture, "event": event})
         if fixture["status"] != old["status"]:
-            if fixture["status"] == "HT":
+            if fixture["status"] == "1H" and old["status"] in {"NS", "TBD"}:
+                notifications.append({"kind": "started", "fixture": fixture})
+            elif fixture["status"] == "HT":
                 notifications.append({"kind": "halftime", "fixture": fixture})
             elif fixture["status"] == "2H":
                 notifications.append({"kind": "second-half", "fixture": fixture})
@@ -187,6 +189,7 @@ def localized_push(item: dict[str, Any], language: str) -> dict[str, Any]:
     minute_label = f"{minute}' · " if minute is not None else ""
     if language == "en":
         labels = {
+            "started": ("Kick-off", teams),
             "goal": ("Goal!", f'{minute_label}{event.get("player") or "Goal"} · {teams}'),
             "red-card": ("Red card", f'{minute_label}{event.get("player") or "Player"} · {teams}'),
             "halftime": ("Half-time", teams),
@@ -195,6 +198,7 @@ def localized_push(item: dict[str, Any], language: str) -> dict[str, Any]:
         }
     else:
         labels = {
+            "started": ("Comenzó el partido", teams),
             "goal": ("¡Gol!", f'{minute_label}{event.get("player") or "Gol"} · {teams}'),
             "red-card": ("Tarjeta roja", f'{minute_label}{event.get("player") or "Jugador"} · {teams}'),
             "halftime": ("Entretiempo", teams),

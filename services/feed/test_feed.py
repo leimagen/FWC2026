@@ -42,6 +42,22 @@ class FeedTest(unittest.TestCase):
     def test_active_statuses_include_halftime(self):
         self.assertIn("HT", feed.LIVE_STATES)
 
+    def test_detects_kickoff_transition(self):
+        previous = {"fixtures": [{
+            "id": 1, "status": "NS",
+            "home": {"name": "Spain", "goals": 0},
+            "away": {"name": "Saudi Arabia", "goals": 0},
+            "events": [],
+        }]}
+        current = {"fixtures": [{
+            "id": 1, "status": "1H",
+            "home": {"name": "Spain", "goals": 0},
+            "away": {"name": "Saudi Arabia", "goals": 0},
+            "events": [],
+        }]}
+        items = feed.notification_events(previous, current)
+        self.assertEqual(items[0]["kind"], "started")
+
 
 if __name__ == "__main__":
     unittest.main()
