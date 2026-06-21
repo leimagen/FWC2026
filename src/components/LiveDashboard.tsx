@@ -624,8 +624,8 @@ function LiveTickerMatch({
 				</span>
 				<strong>{fixture.home.goals}–{fixture.away.goals}</strong>
 				<span className="ticker-team away">
-					<b>{away.code}</b>
 					<span className="ticker-flag-wrap"><TeamFlag team={away} /></span>
+					<b>{away.code}</b>
 				</span>
 				<small>{liveStatus(fixture, copy)}</small>
 			</div>
