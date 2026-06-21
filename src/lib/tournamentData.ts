@@ -3,7 +3,19 @@ import type { GroupId, Match, Team } from './standings';
 const team = (
 	id: string, group: GroupId, es: string, en: string, code: string,
 	flag: string, ranking: number, fairPlay = 0,
-): Team => ({ id, group, name: { es, en }, code, flag, ranking, fairPlay });
+): Team => ({
+	id, group, name: { es, en }, code, flag,
+	flagCode: flagCodes[id], ranking, fairPlay,
+});
+
+const flagCodes: Record<string, string> = {
+	mex:'mx', rsa:'za', kor:'kr', cze:'cz', can:'ca', bih:'ba', qat:'qa', sui:'ch',
+	bra:'br', mar:'ma', sco:'gb-sct', hai:'ht', usa:'us', par:'py', aus:'au', tur:'tr',
+	ger:'de', civ:'ci', ecu:'ec', cuw:'cw', ned:'nl', jpn:'jp', swe:'se', tun:'tn',
+	bel:'be', egy:'eg', irn:'ir', nzl:'nz', esp:'es', cpv:'cv', ksa:'sa', uru:'uy',
+	fra:'fr', sen:'sn', nor:'no', irq:'iq', arg:'ar', alg:'dz', aut:'at', jor:'jo',
+	por:'pt', cod:'cd', col:'co', uzb:'uz', eng:'gb-eng', cro:'hr', gha:'gh', pan:'pa',
+};
 
 export const tournamentTeams: Team[] = [
 	team('mex','A','México','Mexico','MEX','🇲🇽',15), team('rsa','A','Sudáfrica','South Africa','RSA','🇿🇦',61),

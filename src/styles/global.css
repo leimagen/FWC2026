@@ -91,6 +91,7 @@ button { color: inherit; }
 .group-tabs button { min-width: 64px; padding: 10px 7px 8px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.025); color: var(--muted); cursor: pointer; }
 .group-tabs button span { display: block; color: #fff; font: 600 14px var(--mono); }
 .group-tabs button small { display: block; margin-top: 4px; font: 500 9px var(--mono); white-space: nowrap; }
+.group-tabs button small .country-flag { vertical-align: -2px; }
 .group-tabs button.active { border-color: rgba(183,243,74,.5); background: rgba(183,243,74,.09); }
 .group-tabs button.active span { color: var(--lime); }
 
@@ -118,6 +119,9 @@ button { color: inherit; }
 .position { color: var(--muted); font: 500 13px var(--mono); }
 .team-name { display: flex; align-items: center; gap: 12px; }
 .team-name .flag { display: grid; place-items: center; width: 36px; height: 36px; background: rgba(255,255,255,.05); border-radius: 50%; font-size: 20px; }
+.country-flag { width: 24px; height: 18px; object-fit: cover; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.12); vertical-align: middle; flex: 0 0 auto; }
+.country-flag.compact { width: 16px; height: 12px; border-radius: 2px; }
+.team-name .flag .country-flag { width: 25px; height: 19px; }
 .team-name > span { display: flex; flex-direction: column; gap: 2px; }
 .team-name strong { font-size: 14px; }
 .team-name small { color: #68717d; font: 500 9px var(--mono); letter-spacing: .08em; }
@@ -137,7 +141,7 @@ button { color: inherit; }
 .score-control button { width: 28px; height: 28px; border: 1px solid var(--line); background: rgba(255,255,255,.04); border-radius: 8px; cursor: pointer; }
 .score-control button:hover { background: var(--lime); color: #111; }
 .score-control b { font: 500 17px var(--mono); }
-.flag-plain { margin-right: 7px; }
+.flag-plain, .third-team .country-flag, .bracket-match .country-flag, .score-control .country-flag { margin-right: 7px; }
 .upcoming-match { display: grid; grid-template-columns: 1fr 30px 1fr; align-items: center; text-align: center; margin: 0 14px 10px; padding: 11px; border-top: 1px solid var(--line); color: var(--muted); font: 500 11px var(--mono); }
 .upcoming-match b { color: #59616c; font-size: 9px; }
 
@@ -179,6 +183,9 @@ footer { padding: 18px 0 42px; color: #59616c; font-size: 10px; text-align: cent
 .consent-banner { position: fixed; z-index: 50; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, calc(100% - 24px)); padding: 17px 18px; border: 1px solid rgba(255,255,255,.13); border-radius: 16px; background: rgba(15,20,27,.98); box-shadow: 0 24px 90px rgba(0,0,0,.48); display: flex; align-items: center; justify-content: space-between; gap: 24px; backdrop-filter: blur(20px); }
 .consent-banner strong { font-size: 13px; }
 .consent-banner p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.analytics-status { display: block; margin-top: 7px; color: #9ca5b0; font: 500 9px var(--mono); }
+.analytics-status.loaded { color: var(--lime); }
+.analytics-status.blocked { color: #ff8a8a; }
 .consent-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .consent-actions button { min-height: 36px; padding: 0 13px; border-radius: 9px; border: 1px solid var(--line); cursor: pointer; font-size: 11px; font-weight: 700; }
 .consent-actions .secondary { background: transparent; color: #a0a8b2; }

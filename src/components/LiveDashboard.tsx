@@ -8,6 +8,7 @@ import { normalizeFeedMatches, type LiveFeedSnapshot } from '../lib/liveFeed';
 type Language = 'es' | 'en';
 type View = 'groups' | 'thirds' | 'bracket';
 type AnalyticsConsent = 'accepted' | 'declined' | null;
+type AnalyticsStatus = 'idle' | 'loading' | 'loaded' | 'blocked';
 
 const GA_MEASUREMENT_ID = 'G-DP2FPQ0D8Z';
 
@@ -56,6 +57,9 @@ const copy = {
 		acceptAnalytics: 'Aceptar',
 		declineAnalytics: 'No, gracias',
 		privacySettings: 'Privacidad',
+		analyticsLoading: 'Conectando con Google Analytics…',
+		analyticsLoaded: 'Google Analytics conectado',
+		analyticsBlocked: 'Google Analytics fue bloqueado por el navegador o una extensión',
 	},
 	en: {
 		live: 'LIVE SIMULATION',
@@ -101,6 +105,9 @@ const copy = {
 		acceptAnalytics: 'Accept',
 		declineAnalytics: 'No thanks',
 		privacySettings: 'Privacy',
+		analyticsLoading: 'Connecting to Google Analytics…',
+		analyticsLoaded: 'Google Analytics connected',
+		analyticsBlocked: 'Google Analytics was blocked by the browser or an extension',
 	},
 } as const;
 
@@ -108,7 +115,13 @@ const teamMap = new Map(tournamentTeams.map((team) => [team.id, team]));
 const teamById = (id: string) => teamMap.get(id)!;
 
 function TeamLabel({ team, language }: { team: Team; language: Language }) {
-	return <><span className="flag-plain">{team.flag}</span><span>{team.name[language]}</span></>;
+	return <><TeamFlag team={team} /><span>{team.name[language]}</span></>;
+}
+
+function TeamFlag({ team, compact = false }: { team: Team; compact?: boolean }) {
+	return team.flagCode
+		? <img className={`country-flag ${compact ? 'compact' : ''}`} src={`/flags/${team.flagCode}.svg`} alt="" />
+		: <span className="flag-plain">{team.flag}</span>;
 }
 
 export default function LiveDashboard({ initialLanguage }: { initialLanguage: Language }) {
@@ -125,6 +138,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [pushFeedback, setPushFeedback] = useState<string | null>(null);
 	const [mutedFixtureIds, setMutedFixtureIds] = useState<number[]>([]);
 	const [showAnalyticsConsent, setShowAnalyticsConsent] = useState(false);
+	const [analyticsStatus, setAnalyticsStatus] = useState<AnalyticsStatus>('idle');
 	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
 	const [feedConnected, setFeedConnected] = useState(false);
 	const t = copy[language];
@@ -180,7 +194,8 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	useEffect(() => {
 		const saved = window.localStorage.getItem('analyticsConsent') as AnalyticsConsent;
 		if (saved === 'accepted') {
-			loadGoogleAnalytics();
+			setAnalyticsStatus('loading');
+			void loadGoogleAnalytics().then(setAnalyticsStatus);
 		} else if (saved !== 'declined') {
 			setShowAnalyticsConsent(true);
 		}
@@ -217,7 +232,12 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	function chooseAnalytics(next: Exclude<AnalyticsConsent, null>) {
 		window.localStorage.setItem('analyticsConsent', next);
 		setShowAnalyticsConsent(false);
-		if (next === 'accepted') loadGoogleAnalytics();
+		if (next === 'accepted') {
+			setAnalyticsStatus('loading');
+			void loadGoogleAnalytics().then(setAnalyticsStatus);
+		} else {
+			setAnalyticsStatus('idle');
+		}
 	}
 
 	async function requestNotifications() {
@@ -308,9 +328,9 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				<div className="ticker">
 					{liveMatches.map((match) => (
 						<button className="ticker-match" key={match.id} onClick={() => { setSelectedGroup(match.group); setView('groups'); }}>
-							<span>{teamById(match.homeId).flag} {teamById(match.homeId).code}</span>
+									<span><TeamFlag team={teamById(match.homeId)} compact /> {teamById(match.homeId).code}</span>
 							<strong>{match.homeGoals}–{match.awayGoals}</strong>
-							<span>{teamById(match.awayId).code} {teamById(match.awayId).flag}</span>
+									<span>{teamById(match.awayId).code} <TeamFlag team={teamById(match.awayId)} compact /></span>
 							<small>{match.minute}'</small>
 						</button>
 					))}
@@ -339,7 +359,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 							const leader = projection.groups[group][0];
 							return (
 								<button key={group} className={selectedGroup === group ? 'active' : ''} onClick={() => setSelectedGroup(group)}>
-									<span>{group}</span><small>{leader.team.flag} {leader.team.code}</small>
+									<span>{group}</span><small><TeamFlag team={leader.team} compact /> {leader.team.code}</small>
 								</button>
 							);
 						})}
@@ -363,7 +383,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 											<motion.div layout transition={{ type: 'spring', stiffness: 420, damping: 34 }}
 												className={`standing-row position-${row.position} ${third?.qualifies ? 'third-qualified' : ''}`} key={row.team.id}>
 												<span className="position">{row.position}</span>
-												<span className="team-name"><b className="flag">{row.team.flag}</b><span><strong>{row.team.name[language]}</strong><small>{row.team.code}</small></span></span>
+												<span className="team-name"><b className="flag"><TeamFlag team={row.team} /></b><span><strong>{row.team.name[language]}</strong><small>{row.team.code}</small></span></span>
 												<span>{row.played}</span><span>{row.goalDifference > 0 ? '+' : ''}{row.goalDifference}</span><strong className="points">{row.points}</strong>
 											</motion.div>
 										);
@@ -477,6 +497,12 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 					<div>
 						<strong id="analytics-consent-title">{t.analyticsTitle}</strong>
 						<p>{t.analyticsText}</p>
+						{analyticsStatus !== 'idle' && (
+							<small className={`analytics-status ${analyticsStatus}`}>
+								{analyticsStatus === 'loading' ? t.analyticsLoading :
+									analyticsStatus === 'loaded' ? t.analyticsLoaded : t.analyticsBlocked}
+							</small>
+						)}
 					</div>
 					<div className="consent-actions">
 						<button className="secondary" onClick={() => chooseAnalytics('declined')}>{t.declineAnalytics}</button>
@@ -495,20 +521,48 @@ function urlBase64ToUint8Array(value: string) {
 	return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
 }
 
-function loadGoogleAnalytics() {
+function loadGoogleAnalytics(): Promise<AnalyticsStatus> {
 	const analyticsWindow = window as Window & {
 		dataLayer?: unknown[];
 		gtag?: (...args: unknown[]) => void;
 	};
-	if (analyticsWindow.gtag) return;
+	if (analyticsWindow.gtag && document.querySelector(`script[data-ga-id="${GA_MEASUREMENT_ID}"]`)) {
+		analyticsWindow.gtag('event', 'page_view', {
+			page_location: window.location.href,
+			page_title: document.title,
+			debug_mode: true,
+		});
+		return Promise.resolve('loaded');
+	}
 	analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
-	analyticsWindow.gtag = (...args: unknown[]) => analyticsWindow.dataLayer!.push(args);
+	analyticsWindow.gtag = function (..._args: unknown[]) {
+		analyticsWindow.dataLayer!.push(arguments);
+	};
+	analyticsWindow.gtag('consent', 'update', {
+		analytics_storage: 'granted',
+		ad_storage: 'denied',
+		ad_user_data: 'denied',
+		ad_personalization: 'denied',
+	});
 	analyticsWindow.gtag('js', new Date());
 	analyticsWindow.gtag('config', GA_MEASUREMENT_ID, {
 		anonymize_ip: true,
+		send_page_view: false,
 	});
-	const script = document.createElement('script');
-	script.async = true;
-	script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-	document.head.appendChild(script);
+	return new Promise((resolve) => {
+		const script = document.createElement('script');
+		script.async = true;
+		script.dataset.gaId = GA_MEASUREMENT_ID;
+		script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+		script.onload = () => {
+			analyticsWindow.gtag?.('event', 'page_view', {
+				page_location: window.location.href,
+				page_title: document.title,
+				debug_mode: true,
+			});
+			resolve('loaded');
+		};
+		script.onerror = () => resolve('blocked');
+		document.head.appendChild(script);
+	});
 }

@@ -8,6 +8,7 @@ export type Team = {
 	name: { es: string; en: string };
 	code: string;
 	flag: string;
+	flagCode?: string;
 	ranking: number;
 	fairPlay?: number;
 };
