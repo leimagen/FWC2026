@@ -37,6 +37,7 @@ self.addEventListener('push', (event) => {
 			badge: '/favicon.png',
 			tag: data.tag ?? undefined,
 			renotify: true,
+			silent: false,
 			data: { url: data.url ?? '/' },
 		}),
 	);

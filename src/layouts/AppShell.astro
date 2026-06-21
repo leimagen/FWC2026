@@ -51,7 +51,10 @@ const socialImageUrl = new URL('/fwc2026live-share-img.jpg', Astro.site);
 		<slot />
 		<script is:inline>
 			if ('serviceWorker' in navigator) {
-				window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+				window.addEventListener('load', async () => {
+					const registration = await navigator.serviceWorker.register('/sw.js');
+					await registration.update();
+				});
 			}
 		</script>
 	</body>

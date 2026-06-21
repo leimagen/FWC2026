@@ -7,6 +7,9 @@ import { normalizeFeedMatches, type LiveFeedSnapshot } from '../lib/liveFeed';
 
 type Language = 'es' | 'en';
 type View = 'groups' | 'thirds' | 'bracket';
+type AnalyticsConsent = 'accepted' | 'declined' | null;
+
+const GA_MEASUREMENT_ID = 'G-DP2FPQ0D8Z';
 
 const copy = {
 	es: {
@@ -36,6 +39,9 @@ const copy = {
 		disclaimer: 'Modo simulación · Datos locales · Sitio independiente, no afiliado a FIFA.',
 		notifications: 'Avisarme',
 		notificationsOn: 'Avisos activos',
+		testNotification: 'Probar aviso',
+		testSent: 'Prueba enviada',
+		testFailed: 'No se pudo enviar',
 		notificationsBlocked: 'Bloqueadas',
 		muteMatch: 'Mutear este partido',
 		unmuteMatch: 'Activar avisos',
@@ -45,6 +51,11 @@ const copy = {
 		supportPrompt: '¿Te resulta útil?',
 		support: 'Apoya el proyecto',
 		contribute: 'Contribuir con',
+		analyticsTitle: 'Analítica opcional',
+		analyticsText: 'Google Analytics nos ayuda a entender cómo se usa la app. Solo se carga si aceptas.',
+		acceptAnalytics: 'Aceptar',
+		declineAnalytics: 'No, gracias',
+		privacySettings: 'Privacidad',
 	},
 	en: {
 		live: 'LIVE SIMULATION',
@@ -73,6 +84,9 @@ const copy = {
 		disclaimer: 'Simulation mode · Local data · Independent site, not affiliated with FIFA.',
 		notifications: 'Notify me',
 		notificationsOn: 'Alerts on',
+		testNotification: 'Test alert',
+		testSent: 'Test sent',
+		testFailed: 'Could not send',
 		notificationsBlocked: 'Blocked',
 		muteMatch: 'Mute this match',
 		unmuteMatch: 'Enable alerts',
@@ -82,6 +96,11 @@ const copy = {
 		supportPrompt: 'Finding it useful?',
 		support: 'Support the project',
 		contribute: 'Contribute with',
+		analyticsTitle: 'Optional analytics',
+		analyticsText: 'Google Analytics helps us understand how the app is used. It only loads if you accept.',
+		acceptAnalytics: 'Accept',
+		declineAnalytics: 'No thanks',
+		privacySettings: 'Privacy',
 	},
 } as const;
 
@@ -103,7 +122,9 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	}>>({});
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [notificationsBlocked, setNotificationsBlocked] = useState(false);
+	const [pushFeedback, setPushFeedback] = useState<string | null>(null);
 	const [mutedFixtureIds, setMutedFixtureIds] = useState<number[]>([]);
+	const [showAnalyticsConsent, setShowAnalyticsConsent] = useState(false);
 	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
 	const [feedConnected, setFeedConnected] = useState(false);
 	const t = copy[language];
@@ -157,6 +178,15 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	}, []);
 
 	useEffect(() => {
+		const saved = window.localStorage.getItem('analyticsConsent') as AnalyticsConsent;
+		if (saved === 'accepted') {
+			loadGoogleAnalytics();
+		} else if (saved !== 'declined') {
+			setShowAnalyticsConsent(true);
+		}
+	}, []);
+
+	useEffect(() => {
 		if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 		void navigator.serviceWorker.ready
 			.then((registration) => registration.pushManager.getSubscription())
@@ -184,6 +214,12 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		document.documentElement.lang = next;
 	}
 
+	function chooseAnalytics(next: Exclude<AnalyticsConsent, null>) {
+		window.localStorage.setItem('analyticsConsent', next);
+		setShowAnalyticsConsent(false);
+		if (next === 'accepted') loadGoogleAnalytics();
+	}
+
 	async function requestNotifications() {
 		if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
 		const permission = await Notification.requestPermission();
@@ -207,6 +243,27 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		});
 		setNotificationsEnabled(true);
 		setNotificationsBlocked(false);
+	}
+
+	async function handleNotificationButton() {
+		if (!notificationsEnabled) {
+			await requestNotifications();
+			return;
+		}
+		const registration = await navigator.serviceWorker.ready;
+		await registration.update();
+		const subscription = await registration.pushManager.getSubscription();
+		if (!subscription) {
+			setNotificationsEnabled(false);
+			return;
+		}
+		const response = await fetch('https://feed.fwc2026live.com/v1/push/test', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ subscription: subscription.toJSON(), language }),
+		});
+		setPushFeedback(response.ok ? t.testSent : t.testFailed);
+		window.setTimeout(() => setPushFeedback(null), 3500);
 	}
 
 	async function toggleMute(matchId: string) {
@@ -234,9 +291,10 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 					<img src="/brand/fwc2026live-logo.png" alt="FWC 2026 Live" width="1457" height="214" />
 				</a>
 				<div className="top-actions">
-					<button className="notify-button" type="button" onClick={requestNotifications} disabled={notificationsBlocked}>
+					<button className="notify-button" type="button" onClick={() => void handleNotificationButton()} disabled={notificationsBlocked}
+						title={notificationsEnabled ? t.testNotification : t.notifications}>
 						<span aria-hidden="true">{notificationsEnabled ? '●' : '◉'}</span>{' '}
-						{notificationsBlocked ? t.notificationsBlocked : notificationsEnabled ? t.notificationsOn : t.notifications}
+						{pushFeedback ?? (notificationsBlocked ? t.notificationsBlocked : notificationsEnabled ? t.notificationsOn : t.notifications)}
 					</button>
 					<div className="language-switch" aria-label="Language">
 						<button className={language === 'es' ? 'active' : ''} onClick={() => switchLanguage('es')}>ES</button>
@@ -407,7 +465,25 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				</a>
 			</section>
 
-			<footer>{t.disclaimer}</footer>
+			<footer>
+				{t.disclaimer}
+				<button className="privacy-button" onClick={() => setShowAnalyticsConsent(true)}>
+					{t.privacySettings}
+				</button>
+			</footer>
+
+			{showAnalyticsConsent && (
+				<div className="consent-banner" role="dialog" aria-labelledby="analytics-consent-title">
+					<div>
+						<strong id="analytics-consent-title">{t.analyticsTitle}</strong>
+						<p>{t.analyticsText}</p>
+					</div>
+					<div className="consent-actions">
+						<button className="secondary" onClick={() => chooseAnalytics('declined')}>{t.declineAnalytics}</button>
+						<button className="primary" onClick={() => chooseAnalytics('accepted')}>{t.acceptAnalytics}</button>
+					</div>
+				</div>
+			)}
 		</main>
 	);
 }
@@ -417,4 +493,22 @@ function urlBase64ToUint8Array(value: string) {
 	const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
 	const raw = window.atob(base64);
 	return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
+}
+
+function loadGoogleAnalytics() {
+	const analyticsWindow = window as Window & {
+		dataLayer?: unknown[];
+		gtag?: (...args: unknown[]) => void;
+	};
+	if (analyticsWindow.gtag) return;
+	analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
+	analyticsWindow.gtag = (...args: unknown[]) => analyticsWindow.dataLayer!.push(args);
+	analyticsWindow.gtag('js', new Date());
+	analyticsWindow.gtag('config', GA_MEASUREMENT_ID, {
+		anonymize_ip: true,
+	});
+	const script = document.createElement('script');
+	script.async = true;
+	script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+	document.head.appendChild(script);
 }

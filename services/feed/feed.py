@@ -246,11 +246,11 @@ def send_notifications(items: list[dict[str, Any]]) -> None:
                 }))
 
 
-def send_welcome(subscription: dict[str, Any], language: str) -> None:
+def send_welcome(subscription: dict[str, Any], language: str) -> bool:
     private_key = os.getenv("VAPID_PRIVATE_KEY")
     subject = os.getenv("VAPID_SUBJECT")
     if not private_key or not subject:
-        return
+        return False
     from pywebpush import WebPushException, webpush
 
     payload = {
@@ -271,10 +271,15 @@ def send_welcome(subscription: dict[str, Any], language: str) -> None:
             vapid_claims={"sub": subject},
             ttl=120,
         )
+        logging.info(json.dumps({
+            "level": "info", "event": "test_push_accepted",
+        }))
+        return True
     except WebPushException as error:
         logging.error(json.dumps({
             "level": "error", "event": "welcome_push_failed", "error": str(error),
         }))
+        return False
 
 
 def refresh() -> tuple[int, int | None]:
@@ -381,6 +386,11 @@ class Handler(BaseHTTPRequestHandler):
                 save_subscription(body["subscription"], body.get("language", "es"))
                 send_welcome(body["subscription"], body.get("language", "es"))
                 self.send_json(201, {"ok": True})
+            elif self.path == "/v1/push/test":
+                accepted = send_welcome(
+                    body["subscription"], body.get("language", "es")
+                )
+                self.send_json(200 if accepted else 502, {"ok": accepted})
             elif self.path == "/v1/push/preferences":
                 save_preferences(body["endpoint"], [
                     int(value) for value in body.get("mutedFixtureIds", [])
