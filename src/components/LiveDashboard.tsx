@@ -24,7 +24,7 @@ const copy = {
 		bestThird: 'Mejor 3.º',
 		out: 'Fuera',
 		control: 'Control de simulación',
-		controlNote: 'Los dos partidos del Grupo E se calculan como si terminaran con este marcador.',
+		controlNote: 'Ajusta los partidos activos o los próximos del grupo y proyecta cómo quedaría la tabla.',
 		dataNote: 'Resultados locales con corte',
 		updated: 'Actualizado',
 		next: 'Próximos partidos',
@@ -39,6 +39,7 @@ const copy = {
 		notificationsBlocked: 'Bloqueadas',
 		muteMatch: 'Mutear este partido',
 		unmuteMatch: 'Activar avisos',
+		resetSimulation: 'Restablecer marcador',
 		connected: 'Datos en vivo',
 		local: 'Modo local',
 		supportPrompt: '¿Te resulta útil?',
@@ -60,7 +61,7 @@ const copy = {
 		bestThird: 'Best 3rd',
 		out: 'Out',
 		control: 'Simulation control',
-		controlNote: 'Both Group E matches are calculated as if these scores held until full time.',
+		controlNote: 'Adjust live or upcoming group matches and project how the table would finish.',
 		dataNote: 'Local results as of',
 		updated: 'Updated',
 		next: 'Upcoming matches',
@@ -75,6 +76,7 @@ const copy = {
 		notificationsBlocked: 'Blocked',
 		muteMatch: 'Mute this match',
 		unmuteMatch: 'Enable alerts',
+		resetSimulation: 'Reset score',
 		connected: 'Live data',
 		local: 'Local mode',
 		supportPrompt: 'Finding it useful?',
@@ -95,6 +97,10 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [selectedGroup, setSelectedGroup] = useState<GroupId>('E');
 	const [view, setView] = useState<View>('groups');
 	const [matches, setMatches] = useState<Match[]>(tournamentMatches);
+	const [simulationOverrides, setSimulationOverrides] = useState<Record<string, {
+		homeGoals: number;
+		awayGoals: number;
+	}>>({});
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [notificationsBlocked, setNotificationsBlocked] = useState(false);
 	const [mutedFixtureIds, setMutedFixtureIds] = useState<number[]>([]);
@@ -102,14 +108,27 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [feedConnected, setFeedConnected] = useState(false);
 	const t = copy[language];
 
+	const effectiveMatches = useMemo(() => matches.map((match) => {
+		const override = simulationOverrides[match.id];
+		return override ? {
+			...match,
+			...override,
+			status: match.status === 'scheduled' ? 'live' as const : match.status,
+			minute: match.minute ?? 0,
+			simulated: true,
+		} : match;
+	}), [matches, simulationOverrides]);
 	const projection = useMemo(
-		() => calculateTournament(tournamentTeams, matches),
-		[matches],
+		() => calculateTournament(tournamentTeams, effectiveMatches),
+		[effectiveMatches],
 	);
 	const bracket = useMemo(() => projectRoundOf32(projection.groups), [projection.groups]);
 	const selectedTable = projection.groups[selectedGroup];
-	const selectedMatches = matches.filter((match) => match.group === selectedGroup);
-	const liveMatches = matches.filter((match) => match.status === 'live');
+	const selectedMatches = effectiveMatches.filter((match) => match.group === selectedGroup);
+	const liveMatches = effectiveMatches.filter((match) => match.status === 'live');
+	const controlMatches = selectedMatches.some((match) => match.status === 'live')
+		? selectedMatches.filter((match) => match.status === 'live')
+		: selectedMatches.filter((match) => match.status === 'scheduled').slice(0, 2);
 	const cutoff = new Intl.DateTimeFormat(language, {
 		day: 'numeric', month: 'short', year: 'numeric',
 		hour: '2-digit', minute: '2-digit',
@@ -133,7 +152,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 			}
 		};
 		void refresh();
-		const timer = window.setInterval(refresh, 30_000);
+		const timer = window.setInterval(refresh, 5_000);
 		return () => { active = false; window.clearInterval(timer); };
 	}, []);
 
@@ -148,10 +167,14 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	}, []);
 
 	function updateScore(matchId: string, side: 'home' | 'away', change: number) {
-		setMatches((current) => current.map((match) => {
-			if (match.id !== matchId) return match;
-			const key = side === 'home' ? 'homeGoals' : 'awayGoals';
-			return { ...match, [key]: Math.max(0, match[key] + change) };
+		const match = effectiveMatches.find((item) => item.id === matchId);
+		if (!match) return;
+		setSimulationOverrides((current) => ({
+			...current,
+			[matchId]: {
+				homeGoals: side === 'home' ? Math.max(0, match.homeGoals + change) : match.homeGoals,
+				awayGoals: side === 'away' ? Math.max(0, match.awayGoals + change) : match.awayGoals,
+			},
 		}));
 	}
 
@@ -294,11 +317,22 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 						<aside className="side-column">
 							<section className="panel simulation-panel">
 								<div className="panel-heading compact"><div><p className="section-kicker">CONTROL ROOM</p><h2>{t.control}</h2></div></div>
-								<p className="panel-note">{selectedGroup === 'E' ? t.controlNote : t.noLive}</p>
-								{selectedMatches.filter((match) => match.status === 'live').map((match) => (
+								<p className="panel-note">{t.controlNote}</p>
+								{controlMatches.map((match) => (
 									<div className="match-control" key={match.id}>
 										<div className="match-meta">
-											<span className="pulse" /> {match.minute}' · {t.group} {match.group}
+											<span className="pulse" /> {match.status === 'scheduled' ? t.next : `${match.minute}'`} · {t.group} {match.group}
+											{simulationOverrides[match.id] && (
+												<button
+													onClick={() => setSimulationOverrides((current) => {
+														const next = { ...current };
+														delete next[match.id];
+														return next;
+													})}
+													title={t.resetSimulation}
+													aria-label={t.resetSimulation}
+												>↺</button>
+											)}
 											{notificationsEnabled && match.id.startsWith('api-') && (
 												<button
 													className={mutedFixtureIds.includes(Number(match.id.replace('api-', ''))) ? 'muted' : ''}
@@ -319,7 +353,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 										})}
 									</div>
 								))}
-								{selectedMatches.filter((match) => match.status === 'scheduled').slice(0, 2).map((match) => (
+								{controlMatches.length === 0 && selectedMatches.filter((match) => match.status === 'scheduled').slice(0, 2).map((match) => (
 									<div className="upcoming-match" key={match.id}>
 										<span>{teamById(match.homeId).code}</span><b>vs</b><span>{teamById(match.awayId).code}</span>
 									</div>

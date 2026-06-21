@@ -246,7 +246,38 @@ def send_notifications(items: list[dict[str, Any]]) -> None:
                 }))
 
 
-def refresh() -> None:
+def send_welcome(subscription: dict[str, Any], language: str) -> None:
+    private_key = os.getenv("VAPID_PRIVATE_KEY")
+    subject = os.getenv("VAPID_SUBJECT")
+    if not private_key or not subject:
+        return
+    from pywebpush import WebPushException, webpush
+
+    payload = {
+        "title": "¡Avisos activados!" if language == "es" else "Alerts enabled!",
+        "body": (
+            "Te avisaremos de goles, rojas y estados del partido."
+            if language == "es"
+            else "We’ll notify you about goals, red cards and match states."
+        ),
+        "url": "/",
+        "tag": "push-welcome",
+    }
+    try:
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps(payload),
+            vapid_private_key=private_key,
+            vapid_claims={"sub": subject},
+            ttl=120,
+        )
+    except WebPushException as error:
+        logging.error(json.dumps({
+            "level": "error", "event": "welcome_push_failed", "error": str(error),
+        }))
+
+
+def refresh() -> tuple[int, int | None]:
     try:
         fixtures, remaining = api_get("/fixtures", {"league": 1, "season": 2026})
         events: dict[int, list[dict[str, Any]]] = {}
@@ -275,6 +306,7 @@ def refresh() -> None:
             "live": len(events),
             "remainingRequests": remaining,
         }))
+        return len(events), remaining
     except Exception as error:  # noqa: BLE001 - service must retain its last good snapshot
         with state_lock:
             state["last_error"] = str(error)
@@ -283,17 +315,23 @@ def refresh() -> None:
             "event": "snapshot_failed",
             "error": str(error),
         }))
+        return 0, None
 
 
 def poll_forever() -> None:
-    interval = int(os.getenv("POLL_SECONDS", "60"))
     while True:
-        refresh()
+        live_count, remaining = refresh()
+        if live_count and (remaining is None or remaining > 500):
+            interval = int(os.getenv("LIVE_POLL_SECONDS", "10"))
+        else:
+            interval = int(os.getenv("IDLE_POLL_SECONDS", "120"))
         time.sleep(interval)
 
 
 class Handler(BaseHTTPRequestHandler):
-    def send_json(self, status: int, body: dict[str, Any]) -> None:
+    def send_json(
+        self, status: int, body: dict[str, Any], cache_control: str = "no-store"
+    ) -> None:
         encoded = json.dumps(body, separators=(",", ":")).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -303,7 +341,7 @@ class Handler(BaseHTTPRequestHandler):
         ))
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Cache-Control", "public, max-age=15, stale-while-revalidate=45")
+        self.send_header("Cache-Control", cache_control)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(encoded)
@@ -319,7 +357,9 @@ class Handler(BaseHTTPRequestHandler):
                 "lastError": last_error,
             })
         elif self.path == "/v1/world-cup":
-            self.send_json(200, snapshot) if snapshot else self.send_json(
+            self.send_json(
+                200, snapshot, "public, max-age=3, stale-while-revalidate=7"
+            ) if snapshot else self.send_json(
                 503, {"error": "snapshot_not_ready", "lastError": last_error}
             )
         elif self.path == "/v1/push/public-key":
@@ -339,6 +379,7 @@ class Handler(BaseHTTPRequestHandler):
             body = self.read_json()
             if self.path == "/v1/push/subscribe":
                 save_subscription(body["subscription"], body.get("language", "es"))
+                send_welcome(body["subscription"], body.get("language", "es"))
                 self.send_json(201, {"ok": True})
             elif self.path == "/v1/push/preferences":
                 save_preferences(body["endpoint"], [

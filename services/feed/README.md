@@ -5,6 +5,7 @@ Independent API-Football collector. It has no relationship to Abril and imports 
 The service:
 
 - polls World Cup 2026 fixtures;
+- polls every 10 seconds while matches are live and every 2 minutes otherwise;
 - fetches event details only for active matches;
 - uses only Python's standard library;
 - exposes a sanitized JSON snapshot on `127.0.0.1:8787`;
