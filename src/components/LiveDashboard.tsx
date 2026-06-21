@@ -11,6 +11,7 @@ type AnalyticsConsent = 'accepted' | 'declined' | null;
 type AnalyticsStatus = 'idle' | 'loading' | 'loaded' | 'blocked';
 
 const GA_MEASUREMENT_ID = 'G-DP2FPQ0D8Z';
+const ACTIVE_MATCH_STATUSES = new Set(['live', 'halftime']);
 
 const copy = {
 	es: {
@@ -43,6 +44,8 @@ const copy = {
 		testNotification: 'Probar aviso',
 		testSent: 'Prueba enviada',
 		testFailed: 'No se pudo enviar',
+		disableNotifications: 'Desactivar avisos',
+		enableNotifications: 'Activar avisos',
 		notificationsBlocked: 'Bloqueadas',
 		muteMatch: 'Mutear este partido',
 		unmuteMatch: 'Activar avisos',
@@ -104,6 +107,8 @@ const copy = {
 		testNotification: 'Test alert',
 		testSent: 'Test sent',
 		testFailed: 'Could not send',
+		disableNotifications: 'Turn alerts off',
+		enableNotifications: 'Turn alerts on',
 		notificationsBlocked: 'Blocked',
 		muteMatch: 'Mute this match',
 		unmuteMatch: 'Enable alerts',
@@ -187,8 +192,8 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const bracket = useMemo(() => projectRoundOf32(projection.groups), [projection.groups]);
 	const selectedTable = projection.groups[selectedGroup];
 	const selectedMatches = effectiveMatches.filter((match) => match.group === selectedGroup);
-	const controlMatches = selectedMatches.some((match) => match.status === 'live')
-		? selectedMatches.filter((match) => match.status === 'live')
+	const controlMatches = selectedMatches.some((match) => ACTIVE_MATCH_STATUSES.has(match.status))
+		? selectedMatches.filter((match) => ACTIVE_MATCH_STATUSES.has(match.status))
 		: selectedMatches.filter((match) => match.status === 'scheduled').slice(0, 2);
 	const cutoff = new Intl.DateTimeFormat(language, {
 		day: 'numeric', month: 'short', year: 'numeric',
@@ -292,11 +297,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		setNotificationsBlocked(false);
 	}
 
-	async function handleNotificationButton() {
-		if (!notificationsEnabled) {
-			await requestNotifications();
-			return;
-		}
+	async function testNotification() {
 		const registration = await navigator.serviceWorker.ready;
 		await registration.update();
 		const subscription = await registration.pushManager.getSubscription();
@@ -311,6 +312,27 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 		});
 		setPushFeedback(response.ok ? t.testSent : t.testFailed);
 		window.setTimeout(() => setPushFeedback(null), 3500);
+	}
+
+	async function disableNotifications() {
+		const registration = await navigator.serviceWorker.ready;
+		const subscription = await registration.pushManager.getSubscription();
+		if (subscription) {
+			await fetch('https://feed.fwc2026live.com/v1/push/subscribe', {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ endpoint: subscription.endpoint }),
+			});
+			await subscription.unsubscribe();
+		}
+		setNotificationsEnabled(false);
+		setMutedFixtureIds([]);
+		window.localStorage.removeItem('mutedFixtureIds');
+	}
+
+	async function toggleNotifications() {
+		if (notificationsEnabled) await disableNotifications();
+		else await requestNotifications();
 	}
 
 	async function toggleMute(matchId: string) {
@@ -338,11 +360,20 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 					<img src="/brand/fwc2026live-logo.png" alt="FWC 2026 Live" width="1457" height="214" />
 				</a>
 				<div className="top-actions">
-					<button className="notify-button" type="button" onClick={() => void handleNotificationButton()} disabled={notificationsBlocked}
-						title={notificationsEnabled ? t.testNotification : t.notifications}>
-						<span aria-hidden="true">{notificationsEnabled ? '●' : '◉'}</span>{' '}
-						{pushFeedback ?? (notificationsBlocked ? t.notificationsBlocked : notificationsEnabled ? t.notificationsOn : t.notifications)}
-					</button>
+					<div className="notification-controls">
+						<button className={`notification-toggle ${notificationsEnabled ? 'active' : ''}`} type="button"
+							onClick={() => void toggleNotifications()} disabled={notificationsBlocked}
+							role="switch" aria-checked={notificationsEnabled}
+							title={notificationsEnabled ? t.disableNotifications : t.enableNotifications}>
+							<span className="toggle-track"><i /></span>
+							<b>{notificationsBlocked ? t.notificationsBlocked : notificationsEnabled ? t.notificationsOn : t.notifications}</b>
+						</button>
+						{notificationsEnabled && (
+							<button className="notification-test" onClick={() => void testNotification()} title={t.testNotification}>
+								{pushFeedback ?? '↗'}
+							</button>
+						)}
+					</div>
 					<div className="language-switch" aria-label="Language">
 						<button className={language === 'es' ? 'active' : ''} onClick={() => switchLanguage('es')}>ES</button>
 						<button className={language === 'en' ? 'active' : ''} onClick={() => switchLanguage('en')}>EN</button>
@@ -434,7 +465,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 								{controlMatches.map((match) => (
 									<div className="match-control" key={match.id}>
 										<div className="match-meta">
-											<span className="pulse" /> {match.status === 'scheduled' ? t.next : `${match.minute}'`} · {t.group} {match.group}
+											<span className="pulse" /> {match.status === 'scheduled' ? t.next : match.status === 'halftime' ? t.halftime : `${match.minute}'`} · {t.group} {match.group}
 											{simulationOverrides[match.id] && (
 												<button
 													onClick={() => setSimulationOverrides((current) => {
@@ -587,9 +618,15 @@ function LiveTickerMatch({
 	return (
 		<button className="ticker-match" onClick={onSelect}>
 			<div className="ticker-scoreline">
-				<span className="ticker-team"><TeamFlag team={home} compact /><b>{home.code}</b></span>
+				<span className="ticker-team">
+					<span className="ticker-flag-wrap"><TeamFlag team={home} /></span>
+					<b>{home.code}</b>
+				</span>
 				<strong>{fixture.home.goals}–{fixture.away.goals}</strong>
-				<span className="ticker-team away"><b>{away.code}</b><TeamFlag team={away} compact /></span>
+				<span className="ticker-team away">
+					<b>{away.code}</b>
+					<span className="ticker-flag-wrap"><TeamFlag team={away} /></span>
+				</span>
 				<small>{liveStatus(fixture, copy)}</small>
 			</div>
 			<div className="ticker-events" aria-live="polite">

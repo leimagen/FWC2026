@@ -401,6 +401,17 @@ class Handler(BaseHTTPRequestHandler):
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
             self.send_json(400, {"error": "invalid_request", "detail": str(error)})
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        try:
+            body = self.read_json()
+            if self.path == "/v1/push/subscribe":
+                remove_subscription(body["endpoint"])
+                self.send_json(200, {"ok": True})
+            else:
+                self.send_json(404, {"error": "not_found"})
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            self.send_json(400, {"error": "invalid_request", "detail": str(error)})
+
     def log_message(self, _format: str, *args: Any) -> None:
         return
 

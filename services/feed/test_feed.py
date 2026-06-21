@@ -39,6 +39,9 @@ class FeedTest(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]["kind"], "goal")
 
+    def test_active_statuses_include_halftime(self):
+        self.assertIn("HT", feed.LIVE_STATES)
+
 
 if __name__ == "__main__":
     unittest.main()
