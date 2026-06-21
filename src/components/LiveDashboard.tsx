@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { calculateTournament, projectRoundOf32 } from '../lib/tournament';
 import { dataCutoff, groupIds, tournamentMatches, tournamentTeams } from '../lib/tournamentData';
 import type { GroupId, Match, Team } from '../lib/standings';
-import { normalizeFeedMatches, type LiveFeedSnapshot } from '../lib/liveFeed';
+import { normalizeFeedMatches, type FeedEvent, type FeedFixture, type LiveFeedSnapshot } from '../lib/liveFeed';
 
 type Language = 'es' | 'en';
 type View = 'groups' | 'thirds' | 'bracket';
@@ -60,6 +60,19 @@ const copy = {
 		analyticsLoading: 'Conectando con Google Analytics…',
 		analyticsLoaded: 'Google Analytics conectado',
 		analyticsBlocked: 'Google Analytics fue bloqueado por el navegador o una extensión',
+		liveNow: 'EN VIVO',
+		halftime: 'ENTRETIEMPO',
+		firstHalf: '1T',
+		secondHalf: '2T',
+		extraTime: 'PRÓRROGA',
+		penalties: 'PENALES',
+		suspended: 'SUSPENDIDO',
+		goalEvent: 'Gol',
+		yellowCard: 'Tarjeta amarilla',
+		redCard: 'Tarjeta roja',
+		ownGoal: 'Autogol',
+		penaltyGoal: 'Penal',
+		assist: 'Asistencia',
 	},
 	en: {
 		live: 'LIVE SIMULATION',
@@ -108,6 +121,19 @@ const copy = {
 		analyticsLoading: 'Connecting to Google Analytics…',
 		analyticsLoaded: 'Google Analytics connected',
 		analyticsBlocked: 'Google Analytics was blocked by the browser or an extension',
+		liveNow: 'LIVE',
+		halftime: 'HALF-TIME',
+		firstHalf: '1H',
+		secondHalf: '2H',
+		extraTime: 'EXTRA TIME',
+		penalties: 'PENALTIES',
+		suspended: 'SUSPENDED',
+		goalEvent: 'Goal',
+		yellowCard: 'Yellow card',
+		redCard: 'Red card',
+		ownGoal: 'Own goal',
+		penaltyGoal: 'Penalty',
+		assist: 'Assist',
 	},
 } as const;
 
@@ -141,6 +167,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [analyticsStatus, setAnalyticsStatus] = useState<AnalyticsStatus>('idle');
 	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
 	const [feedConnected, setFeedConnected] = useState(false);
+	const [feedFixtures, setFeedFixtures] = useState<FeedFixture[]>([]);
 	const t = copy[language];
 
 	const effectiveMatches = useMemo(() => matches.map((match) => {
@@ -160,7 +187,6 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const bracket = useMemo(() => projectRoundOf32(projection.groups), [projection.groups]);
 	const selectedTable = projection.groups[selectedGroup];
 	const selectedMatches = effectiveMatches.filter((match) => match.group === selectedGroup);
-	const liveMatches = effectiveMatches.filter((match) => match.status === 'live');
 	const controlMatches = selectedMatches.some((match) => match.status === 'live')
 		? selectedMatches.filter((match) => match.status === 'live')
 		: selectedMatches.filter((match) => match.status === 'scheduled').slice(0, 2);
@@ -180,6 +206,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				if (active && normalized.length === 72) {
 					setMatches(normalized);
 					setFeedGeneratedAt(snapshot.generatedAt);
+					setFeedFixtures(snapshot.fixtures);
 					setFeedConnected(true);
 				}
 			} catch {
@@ -323,17 +350,25 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				</div>
 			</header>
 
-			<section className="live-strip" aria-label={t.live}>
-				<div className="live-label"><span />{t.live}</div>
+			<section className="live-strip" aria-label={t.liveNow}>
+				<div className="live-label"><span />{t.liveNow}</div>
 				<div className="ticker">
-					{liveMatches.map((match) => (
-						<button className="ticker-match" key={match.id} onClick={() => { setSelectedGroup(match.group); setView('groups'); }}>
-									<span><TeamFlag team={teamById(match.homeId)} compact /> {teamById(match.homeId).code}</span>
-							<strong>{match.homeGoals}–{match.awayGoals}</strong>
-									<span>{teamById(match.awayId).code} <TeamFlag team={teamById(match.awayId)} compact /></span>
-							<small>{match.minute}'</small>
-						</button>
-					))}
+					{feedFixtures
+						.filter((fixture) => ['1H','HT','2H','ET','BT','P','INT','SUSP'].includes(fixture.status))
+						.map((fixture) => {
+							const match = effectiveMatches.find((item) => item.id === `api-${fixture.id}`);
+							if (!match) return null;
+							return (
+								<LiveTickerMatch
+									key={fixture.id}
+									fixture={fixture}
+									match={match}
+									language={language}
+									copy={t}
+									onSelect={() => { setSelectedGroup(match.group); setView('groups'); }}
+								/>
+							);
+						})}
 				</div>
 			</section>
 
@@ -512,6 +547,109 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 			)}
 		</main>
 	);
+}
+
+type TickerCopy = {
+	halftime: string;
+	firstHalf: string;
+	secondHalf: string;
+	extraTime: string;
+	penalties: string;
+	suspended: string;
+	goalEvent: string;
+	yellowCard: string;
+	redCard: string;
+	ownGoal: string;
+	penaltyGoal: string;
+	assist: string;
+};
+
+function LiveTickerMatch({
+	fixture,
+	match,
+	language,
+	copy,
+	onSelect,
+}: {
+	fixture: FeedFixture;
+	match: Match;
+	language: Language;
+	copy: TickerCopy;
+	onSelect: () => void;
+}) {
+	const home = teamById(match.homeId);
+	const away = teamById(match.awayId);
+	const events = fixture.events
+		.filter((event) => event.type === 'Goal' || event.type === 'Card')
+		.slice(-3)
+		.reverse();
+
+	return (
+		<button className="ticker-match" onClick={onSelect}>
+			<div className="ticker-scoreline">
+				<span className="ticker-team"><TeamFlag team={home} compact /><b>{home.code}</b></span>
+				<strong>{fixture.home.goals}–{fixture.away.goals}</strong>
+				<span className="ticker-team away"><b>{away.code}</b><TeamFlag team={away} compact /></span>
+				<small>{liveStatus(fixture, copy)}</small>
+			</div>
+			<div className="ticker-events" aria-live="polite">
+				{events.length > 0 ? events.map((event, index) => (
+					<div className="ticker-event" key={`${fixture.id}-${event.minute}-${event.player}-${index}`}>
+						<span className={`event-mark ${eventClass(event)}`}>{eventIcon(event)}</span>
+						<span>
+							<b>{eventLabel(event, copy)}</b>
+							<em>{event.minute}' · {event.player ?? (language === 'es' ? 'Jugador' : 'Player')}</em>
+							{event.assist && <small>{copy.assist}: {event.assist}</small>}
+						</span>
+					</div>
+				)) : (
+					<div className="ticker-event quiet">
+						<span className="event-mark">●</span>
+						<span><b>{fixture.statusLabel}</b><em>{fixture.venue ?? fixture.city ?? ''}</em></span>
+					</div>
+				)}
+			</div>
+		</button>
+	);
+}
+
+function liveStatus(fixture: FeedFixture, copy: TickerCopy) {
+	const labels: Record<string, string> = {
+		HT: copy.halftime,
+		'1H': copy.firstHalf,
+		'2H': copy.secondHalf,
+		ET: copy.extraTime,
+		BT: copy.extraTime,
+		P: copy.penalties,
+		INT: copy.suspended,
+		SUSP: copy.suspended,
+	};
+	const phase = labels[fixture.status] ?? fixture.statusLabel;
+	if (fixture.status === 'HT') return phase;
+	const minute = fixture.elapsed != null
+		? `${fixture.elapsed}${fixture.addedTime ? `+${fixture.addedTime}` : ''}'`
+		: '';
+	return `${phase}${minute ? ` · ${minute}` : ''}`;
+}
+
+function eventClass(event: FeedEvent) {
+	if (event.type === 'Goal') return 'goal';
+	if (event.detail.includes('Red')) return 'red';
+	return 'yellow';
+}
+
+function eventIcon(event: FeedEvent) {
+	if (event.type === 'Goal') return '⚽';
+	return event.detail.includes('Red') ? '■' : '■';
+}
+
+function eventLabel(event: FeedEvent, copy: TickerCopy) {
+	if (event.type === 'Goal') {
+		if (event.detail === 'Own Goal') return copy.ownGoal;
+		if (event.detail === 'Penalty') return copy.penaltyGoal;
+		return copy.goalEvent;
+	}
+	return event.detail.includes('Red') ? copy.redCard : copy.yellowCard;
 }
 
 function urlBase64ToUint8Array(value: string) {
