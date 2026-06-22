@@ -191,6 +191,14 @@ button { color: inherit; }
 .bracket-match div { display: flex; align-items: center; font-size: 12px; font-weight: 700; }
 .bracket-match i { color: #59616c; font: normal 9px var(--mono); }
 
+.seo-content { margin-top: 18px; padding: 30px 32px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(135deg, rgba(18,23,31,.68), rgba(11,15,21,.48)); display: grid; grid-template-columns: minmax(260px,.9fr) minmax(0,1.35fr); gap: 44px; }
+.seo-content h2 { margin: 0; font-size: clamp(22px, 3vw, 34px); line-height: 1.12; letter-spacing: -.035em; }
+.seo-content h3 { margin: 0 0 8px; color: #dfe3e8; font-size: 13px; }
+.seo-content p { margin: 12px 0 0; color: #858e9a; font-size: 12px; line-height: 1.75; }
+.seo-features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; align-content: center; }
+.seo-features article { padding-left: 18px; border-left: 1px solid rgba(183,243,74,.25); }
+.seo-features article p { margin-top: 0; }
+
 .event-panel { padding: 21px 24px; }
 .event { display: flex; align-items: center; gap: 12px; }
 .event-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: rgba(183,243,74,.1); }
@@ -222,6 +230,7 @@ footer { padding: 30px 0 42px; color: #59616c; font-size: 10px; text-align: cent
 	.group-tabs { grid-template-columns: repeat(12, 70px); }
 	.bracket-grid { grid-template-columns: repeat(2, 1fr); }
 	.brand img { width: 210px; }
+	.seo-content { grid-template-columns: 1fr; gap: 26px; }
 }
 
 @media (max-width: 520px) {
@@ -253,6 +262,8 @@ footer { padding: 30px 0 42px; color: #59616c; font-size: 10px; text-align: cent
 	.thirds-grid { grid-template-columns: 1fr; }
 	.third-row { grid-template-columns: 25px 31px minmax(110px,1fr) 47px 38px 55px; padding: 0 10px; font-size: 10px; }
 	.bracket-grid { grid-template-columns: 1fr; padding: 10px; }
+	.seo-content { padding: 24px 20px; }
+	.seo-features { grid-template-columns: 1fr; gap: 20px; }
 	footer { padding-inline: 14px; line-height: 1.6; }
 	.footer-dot { display: none; }
 	footer > span { width: 100%; }

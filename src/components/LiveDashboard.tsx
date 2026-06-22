@@ -20,8 +20,15 @@ const PRE_MATCH_WAKE_MS = 2 * 60_000;
 const copy = {
 	es: {
 		live: 'SIMULACIÓN EN VIVO',
-		title: 'Un gol mueve todo el Mundial.',
+		title: 'Clasificación del Mundial 2026 en vivo',
+		claim: 'Un gol mueve todo el Mundial.',
 		subtitle: 'Clasificación provisional de los 12 grupos, mejores terceros y cruces recalculados al instante.',
+		seoTitle: 'Resultados y tabla de posiciones del Mundial 2026',
+		seoIntro: 'Sigue los resultados del Mundial 2026 en vivo y consulta cómo cambia la clasificación de cada grupo con el marcador actual. FWC2026 Live recalcula al instante los puntos, la diferencia de goles, los mejores terceros y los cruces provisionales.',
+		seoGroupsTitle: 'Los 12 grupos y los mejores terceros',
+		seoGroups: 'Consulta las tablas de los grupos A al L, compara los ocho mejores terceros y descubre qué selecciones avanzarían a dieciseisavos si los partidos terminaran con el resultado actual.',
+		seoSimulatorTitle: 'Simula cada resultado',
+		seoSimulator: 'Añade o elimina goles en partidos en vivo y próximos para explorar escenarios de clasificación. Los partidos simultáneos se calculan juntos para reflejar su efecto en todo el torneo.',
 		groups: 'Grupos',
 		thirds: 'Mejores terceros',
 		bracket: 'Cruces',
@@ -81,8 +88,15 @@ const copy = {
 	},
 	en: {
 		live: 'LIVE SIMULATION',
-		title: 'One goal moves the whole World Cup.',
+		title: 'World Cup 2026 live standings',
+		claim: 'One goal moves the whole World Cup.',
 		subtitle: 'All 12 groups, best third-placed teams and knockout slots recalculated instantly.',
+		seoTitle: 'World Cup 2026 live scores and group tables',
+		seoIntro: 'Follow World Cup 2026 live scores and see how every current result changes each group. FWC2026 Live instantly recalculates points, goal difference, the best third-placed teams and the projected knockout bracket.',
+		seoGroupsTitle: 'All 12 groups and best third-placed teams',
+		seoGroups: 'Browse groups A through L, compare the eight best third-placed teams and see which nations would advance to the round of 32 if every match ended at the current score.',
+		seoSimulatorTitle: 'Simulate every result',
+		seoSimulator: 'Add or remove goals from live and upcoming matches to explore qualification scenarios. Simultaneous fixtures are calculated together to show their tournament-wide impact.',
 		groups: 'Groups',
 		thirds: 'Best thirds',
 		bracket: 'Bracket',
@@ -450,7 +464,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 			</section>
 
 			<section className="hero compact-hero">
-				<p className="eyebrow">WORLD CUP 2026 · GLOBAL PROJECTION</p>
+				<p className="eyebrow">{t.claim}</p>
 				<h1>{t.title}</h1>
 				<p>{t.subtitle}</p>
 				<small className={`data-cutoff ${feedConnected ? 'connected' : ''}`}>
@@ -588,6 +602,24 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 					</div>
 				</section>
 			)}
+
+			<section className="seo-content" aria-labelledby="about-live-standings">
+				<div className="seo-intro">
+					<p className="section-kicker">FWC2026 LIVE</p>
+					<h2 id="about-live-standings">{t.seoTitle}</h2>
+					<p>{t.seoIntro}</p>
+				</div>
+				<div className="seo-features">
+					<article>
+						<h3>{t.seoGroupsTitle}</h3>
+						<p>{t.seoGroups}</p>
+					</article>
+					<article>
+						<h3>{t.seoSimulatorTitle}</h3>
+						<p>{t.seoSimulator}</p>
+					</article>
+				</div>
+			</section>
 
 			<footer>
 				<span>{t.copyright}</span>
