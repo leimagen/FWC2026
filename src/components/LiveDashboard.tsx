@@ -42,7 +42,7 @@ const copy = {
 		round: 'Dieciseisavos proyectados',
 		thirdPool: 'Mejor 3.º de',
 		match: 'Partido',
-		disclaimer: 'Modo simulación · Datos locales · Sitio independiente, no afiliado a FIFA.',
+		disclaimer: 'Proyecto independiente · No afiliado a FIFA.',
 		notifications: 'Avisarme',
 		notificationsOn: 'Avisos activos',
 		testNotification: 'Probar aviso',
@@ -56,9 +56,7 @@ const copy = {
 		resetSimulation: 'Restablecer marcador',
 		connected: 'Datos en vivo',
 		local: 'Modo local',
-		supportPrompt: '¿Te resulta útil?',
-		support: 'Apoya el proyecto',
-		contribute: 'Contribuir con',
+		copyright: '© 2026 Luiti Escobar',
 		analyticsTitle: 'Analítica opcional',
 		analyticsText: 'Google Analytics nos ayuda a entender cómo se usa la app. Solo se carga si aceptas.',
 		acceptAnalytics: 'Aceptar',
@@ -105,7 +103,7 @@ const copy = {
 		round: 'Projected round of 32',
 		thirdPool: 'Best 3rd from',
 		match: 'Match',
-		disclaimer: 'Simulation mode · Local data · Independent site, not affiliated with FIFA.',
+		disclaimer: 'Independent project · Not affiliated with FIFA.',
 		notifications: 'Notify me',
 		notificationsOn: 'Alerts on',
 		testNotification: 'Test alert',
@@ -119,9 +117,7 @@ const copy = {
 		resetSimulation: 'Reset score',
 		connected: 'Live data',
 		local: 'Local mode',
-		supportPrompt: 'Finding it useful?',
-		support: 'Support the project',
-		contribute: 'Contribute with',
+		copyright: '© 2026 Luiti Escobar',
 		analyticsTitle: 'Optional analytics',
 		analyticsText: 'Google Analytics helps us understand how the app is used. It only loads if you accept.',
 		acceptAnalytics: 'Accept',
@@ -593,19 +589,10 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				</section>
 			)}
 
-			<section className="support-card" aria-label={t.support}>
-				<div>
-					<img src="/brand/ball-icon.png" alt="" width="204" height="207" />
-					<span><small>{t.supportPrompt}</small><strong>{t.support}</strong></span>
-				</div>
-				<a href="https://paypal.me/fwc2026" target="_blank" rel="noopener noreferrer">
-					<span>{t.contribute}</span>
-					<b>PayPal</b>
-				</a>
-			</section>
-
 			<footer>
-				{t.disclaimer}
+				<span>{t.copyright}</span>
+				<span className="footer-dot" aria-hidden="true">·</span>
+				<span>{t.disclaimer}</span>
 				<button className="privacy-button" onClick={() => setShowAnalyticsConsent(true)}>
 					{t.privacySettings}
 				</button>

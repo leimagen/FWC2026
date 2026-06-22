@@ -111,12 +111,6 @@ installing the PWA on the Home Screen.
 - Open Graph and Twitter Card metadata
 - Independent-site disclaimer
 
-### Project support
-
-Visitors can support the project through a discreet
-[PayPal.Me link](https://paypal.me/fwc2026). No PayPal SDK or additional
-tracking scripts are loaded.
-
 ## Architecture
 
 ```text
