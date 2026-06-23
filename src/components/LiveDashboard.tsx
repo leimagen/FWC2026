@@ -3,7 +3,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateTournament, projectRoundOf32 } from '../lib/tournament';
 import { dataCutoff, groupIds, tournamentMatches, tournamentTeams } from '../lib/tournamentData';
 import type { GroupId, Match, Team } from '../lib/standings';
-import { contextualGroup, normalizeFeedMatches, type FeedEvent, type FeedFixture, type LiveFeedSnapshot } from '../lib/liveFeed';
+import {
+	contextualGroup,
+	normalizeFeedMatches,
+	reconcileSimulationOverrides,
+	type FeedEvent,
+	type FeedFixture,
+	type LiveFeedSnapshot,
+	type SimulationOverrides,
+} from '../lib/liveFeed';
 
 type Language = 'es' | 'en';
 type View = 'groups' | 'thirds' | 'bracket';
@@ -174,10 +182,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [selectedGroup, setSelectedGroup] = useState<GroupId>('E');
 	const [view, setView] = useState<View>('groups');
 	const [matches, setMatches] = useState<Match[]>(tournamentMatches);
-	const [simulationOverrides, setSimulationOverrides] = useState<Record<string, {
-		homeGoals: number;
-		awayGoals: number;
-	}>>({});
+	const [simulationOverrides, setSimulationOverrides] = useState<SimulationOverrides>({});
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [notificationsBlocked, setNotificationsBlocked] = useState(false);
 	const [pushFeedback, setPushFeedback] = useState<string | null>(null);
@@ -187,6 +192,7 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 	const [feedGeneratedAt, setFeedGeneratedAt] = useState<string | null>(null);
 	const [feedConnected, setFeedConnected] = useState(false);
 	const [feedFixtures, setFeedFixtures] = useState<FeedFixture[]>([]);
+	const realMatchesRef = useRef<Match[]>(tournamentMatches);
 	const groupSelectionInitialized = useRef(false);
 	const t = copy[language];
 
@@ -246,7 +252,12 @@ export default function LiveDashboard({ initialLanguage }: { initialLanguage: La
 				const snapshot = await response.json() as LiveFeedSnapshot;
 				const normalized = normalizeFeedMatches(snapshot, tournamentTeams);
 				if (active && normalized.length === 72) {
+					const previousRealMatches = realMatchesRef.current;
+					realMatchesRef.current = normalized;
 					setMatches(normalized);
+					setSimulationOverrides((current) =>
+						reconcileSimulationOverrides(previousRealMatches, normalized, current)
+					);
 					setFeedGeneratedAt(snapshot.generatedAt);
 					setFeedFixtures(snapshot.fixtures);
 					setFeedConnected(true);

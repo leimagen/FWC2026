@@ -39,6 +39,11 @@ export type LiveFeedSnapshot = {
 	fixtures: FeedFixture[];
 };
 
+export type SimulationOverrides = Record<string, {
+	homeGoals: number;
+	awayGoals: number;
+}>;
+
 const aliases: Record<string, string> = {
 	'czech republic': 'cze',
 	czechia: 'cze',
@@ -101,6 +106,39 @@ export function normalizeFeedMatches(snapshot: LiveFeedSnapshot, teams: Team[]):
 			status: normalizeStatus(fixture.status),
 		}];
 	});
+}
+
+export function reconcileSimulationOverrides(
+	previousMatches: Match[],
+	nextMatches: Match[],
+	overrides: SimulationOverrides,
+): SimulationOverrides {
+	const previousById = new Map(previousMatches.map((match) => [match.id, match]));
+	const nextById = new Map(nextMatches.map((match) => [match.id, match]));
+	let reconciled = overrides;
+
+	for (const matchId of Object.keys(overrides)) {
+		const previous = previousById.get(matchId);
+		const next = nextById.get(matchId);
+		if (!previous || !next) continue;
+
+		const realScoreChanged =
+			previous.homeGoals !== next.homeGoals ||
+			previous.awayGoals !== next.awayGoals;
+		const realMatchStarted =
+			previous.status === 'scheduled' &&
+			next.status !== 'scheduled';
+		const realMatchFinished =
+			previous.status !== 'finished' &&
+			next.status === 'finished';
+
+		if (realScoreChanged || realMatchStarted || realMatchFinished) {
+			if (reconciled === overrides) reconciled = { ...overrides };
+			delete reconciled[matchId];
+		}
+	}
+
+	return reconciled;
 }
 
 export function contextualGroup(
